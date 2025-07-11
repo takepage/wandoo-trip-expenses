@@ -999,10 +999,12 @@
                 // 확인 다이얼로그
                 confirmDialog && React.createElement('div', { 
                     key: 'confirm',
-                    className: "fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" 
+                    className: "fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4",
+                    style: { zIndex: 9999 }
                 },
                     React.createElement('div', { 
-                        className: "bg-white rounded-lg p-6 w-full max-w-sm" 
+                        className: "bg-white rounded-lg p-6 w-full max-w-sm mx-auto",
+                        onClick: (e) => e.stopPropagation()
                     }, [
                         React.createElement('div', { 
                             key: 'header',
@@ -1010,7 +1012,7 @@
                         }, [
                             React.createElement(AlertCircle, { 
                                 key: 'icon',
-                                className: "text-amber-500"
+                                className: "text-amber-500 flex-shrink-0"
                             }),
                             React.createElement('h3', { 
                                 key: 'title',
@@ -1019,7 +1021,7 @@
                         ]),
                         React.createElement('p', { 
                             key: 'message',
-                            className: "text-gray-600 mb-6" 
+                            className: "text-gray-600 mb-6 leading-relaxed" 
                         }, confirmDialog.message),
                         React.createElement('div', { 
                             key: 'buttons',
@@ -1027,13 +1029,45 @@
                         }, [
                             React.createElement('button', {
                                 key: 'cancel',
-                                onClick: hideConfirmDialog,
-                                className: "flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                                onClick: (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    hideConfirmDialog();
+                                },
+                                onTouchEnd: (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    hideConfirmDialog();
+                                },
+                                className: "flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-700 font-medium bg-white hover:bg-gray-50 active:bg-gray-100 touch-manipulation",
+                                style: { 
+                                    minHeight: '48px',
+                                    WebkitTapHighlightColor: 'transparent',
+                                    userSelect: 'none'
+                                }
                             }, "취소"),
                             React.createElement('button', {
                                 key: 'confirm',
-                                onClick: confirmDialog.onConfirm,
-                                className: "flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                onClick: (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (confirmDialog.onConfirm) {
+                                        confirmDialog.onConfirm();
+                                    }
+                                },
+                                onTouchEnd: (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (confirmDialog.onConfirm) {
+                                        confirmDialog.onConfirm();
+                                    }
+                                },
+                                className: "flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 active:bg-blue-800 touch-manipulation",
+                                style: { 
+                                    minHeight: '48px',
+                                    WebkitTapHighlightColor: 'transparent',
+                                    userSelect: 'none'
+                                }
                             }, "확인")
                         ])
                     ])
