@@ -8,7 +8,11 @@
     <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.8.0/recharts.min.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
+    
     <style>
         body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
     </style>
@@ -17,9 +21,25 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState } = React;
+        // 🔥 Firebase 설정 - 여기에 본인의 설정 코드를 넣으세요!
+        const firebaseConfig = {
+            apiKey: "AIzaSyCxanGX2IKOkI_39iysv26cgaLtLI7ll2M", // 실제 값으로 교체하세요
+            authDomain: "wandoo-trip-expenses.firebaseapp.com",
+            databaseURL: "https://wandoo-trip-expenses-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "wandoo-trip-expenses",
+            storageBucket: "wandoo-trip-expenses.appspot.com",
+            messagingSenderId: "218538594260", // 실제 값으로 교체하세요
+            appId: "1:218538594260:web:1ee2b2d9704d60661d1041", // 실제 값으로 교체하세요
+            measurementId: "G-TXFSD23Z04"
+        };
+
+        // Firebase 초기화
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
         
-        // Lucide Icons as simple SVG components
+        const { useState, useEffect } = React;
+        
+        // Lucide Icons
         const PlusCircle = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8m-4-4h8"/></svg>;
         const Calculator = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h8M8 14h4M8 18h4"/></svg>;
         const Car = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 16H9m10 0h3m-3 0a3 3 0 11-6 0m6 0a3 3 0 11-6 0m-9-8h1m4 0h6m-6 0c2 0 4-2 4-4s-2-4-4-4-4 2-4 4 2 4 4 4z"/></svg>;
@@ -34,37 +54,12 @@
         const AlertCircle = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>;
         const ChevronDown = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6,9 12,15 18,9"/></svg>;
         const ChevronUp = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18,15 12,9 6,15"/></svg>;
+        const Wifi = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12.55a11 11 0 0114 0"/><path d="M8.21 16.89a7 7 0 017.58 0"/><path d="M12 20h.01"/></svg>;
 
         const WandooExpenseDashboard = () => {
-            const [expenses, setExpenses] = useState([
-                {
-                    id: 1,
-                    title: '렌트카 (2박3일)',
-                    category: 'transport',
-                    amount: 180000,
-                    payer: '승현',
-                    splitType: 'equal',
-                    participants: ['승현', '종은', '병권', '신욱', '예원', '가을', '재원'],
-                    customSplit: {},
-                    date: '2025-07-11',
-                    time: '18:30',
-                    completedBy: {}
-                },
-                {
-                    id: 2,
-                    title: '첫날 저녁 - 해산물집',
-                    category: 'food',
-                    amount: 120000,
-                    payer: '종은',
-                    splitType: 'equal',
-                    participants: ['승현', '종은', '병권', '신욱', '예원', '가을', '재원'],
-                    customSplit: {},
-                    date: '2025-07-11',
-                    time: '20:00',
-                    completedBy: {}
-                }
-            ]);
-
+            const [expenses, setExpenses] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [connected, setConnected] = useState(false);
             const [members] = useState(['승현', '종은', '병권', '신욱', '예원', '가을', '재원']);
             const [showAddForm, setShowAddForm] = useState(false);
             const [showCustomSplit, setShowCustomSplit] = useState(false);
@@ -105,6 +100,53 @@
                 food: { name: '식비', icon: Coffee, color: 'bg-orange-100 text-orange-800', chartColor: '#F59E0B' },
                 activity: { name: '활동비', icon: Receipt, color: 'bg-purple-100 text-purple-800', chartColor: '#8B5CF6' },
                 other: { name: '기타', icon: MoreHorizontal, color: 'bg-gray-100 text-gray-800', chartColor: '#6B7280' }
+            };
+
+            // 🔥 Firebase 연결 및 실시간 데이터 동기화
+            useEffect(() => {
+                const expensesRef = database.ref('expenses');
+                
+                // 연결 상태 확인
+                const connectedRef = database.ref('.info/connected');
+                connectedRef.on('value', (snapshot) => {
+                    setConnected(snapshot.val() === true);
+                });
+
+                // 실시간 데이터 동기화
+                expensesRef.on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        const expensesList = Object.keys(data).map(key => ({
+                            ...data[key],
+                            id: key
+                        }));
+                        setExpenses(expensesList);
+                    } else {
+                        setExpenses([]);
+                    }
+                    setLoading(false);
+                });
+
+                // 컴포넌트 언마운트 시 리스너 해제
+                return () => {
+                    expensesRef.off();
+                    connectedRef.off();
+                };
+            }, []);
+
+            // Firebase에 경비 추가
+            const addExpenseToFirebase = (expense) => {
+                const expensesRef = database.ref('expenses');
+                const newExpenseRef = expensesRef.push();
+                newExpenseRef.set({
+                    ...expense,
+                    createdAt: firebase.database.ServerValue.TIMESTAMP
+                });
+            };
+
+            // Firebase에서 경비 업데이트
+            const updateExpenseInFirebase = (expenseId, updates) => {
+                database.ref(`expenses/${expenseId}`).update(updates);
             };
 
             const toggleParticipant = (member) => {
@@ -161,17 +203,11 @@
                     '개인 정산 완료',
                     `${member}님의 ${memberAmount.toLocaleString()}원 정산을 완료하시겠습니까?`,
                     () => {
-                        setExpenses(expenses.map(expense => 
-                            expense.id === expenseId 
-                                ? { 
-                                    ...expense, 
-                                    completedBy: {
-                                        ...expense.completedBy,
-                                        [member]: !expense.completedBy[member]
-                                    }
-                                }
-                                : expense
-                        ));
+                        const newCompletedBy = {
+                            ...expense.completedBy,
+                            [member]: !expense.completedBy[member]
+                        };
+                        updateExpenseInFirebase(expenseId, { completedBy: newCompletedBy });
                         hideConfirmDialog();
                     }
                 );
@@ -187,34 +223,24 @@
                         ? `"${expense.title}" 항목의 전체 정산을 해제하시겠습니까?`
                         : `"${expense.title}" 항목의 전체 정산을 완료하시겠습니까?`,
                     () => {
-                        if (isCompleted) {
-                            setExpenses(expenses.map(exp => 
-                                exp.id === expenseId 
-                                    ? { ...exp, completedBy: {} }
-                                    : exp
-                            ));
-                        } else {
-                            const newCompletedBy = {};
+                        let newCompletedBy = {};
+                        if (!isCompleted) {
                             expense.participants.forEach(participant => {
                                 newCompletedBy[participant] = true;
                             });
-                            setExpenses(expenses.map(exp => 
-                                exp.id === expenseId 
-                                    ? { ...exp, completedBy: newCompletedBy }
-                                    : exp
-                            ));
                         }
+                        updateExpenseInFirebase(expenseId, { completedBy: newCompletedBy });
                         hideConfirmDialog();
                     }
                 );
             };
 
             const isExpenseCompleted = (expense) => {
-                return expense.participants.every(participant => expense.completedBy[participant]);
+                return expense.participants && expense.participants.every(participant => expense.completedBy && expense.completedBy[participant]);
             };
 
             const getParticipantAmount = (expense, member) => {
-                if (expense.splitType === 'custom' && expense.customSplit[member]) {
+                if (expense.splitType === 'custom' && expense.customSplit && expense.customSplit[member]) {
                     return expense.customSplit[member];
                 }
                 
@@ -228,12 +254,13 @@
 
             const addExpense = () => {
                 if (newExpense.title && newExpense.amount && newExpense.participants.length > 0) {
-                    setExpenses([...expenses, {
+                    const expenseData = {
                         ...newExpense,
-                        id: Date.now(),
                         amount: parseInt(newExpense.amount),
                         completedBy: {}
-                    }]);
+                    };
+                    
+                    addExpenseToFirebase(expenseData);
                     
                     const newDateTime = getCurrentDateTime();
                     setNewExpense({
@@ -263,7 +290,7 @@
                 activeExpenses.forEach(expense => {
                     personalTotals[expense.payer].paid += expense.amount;
                     expense.participants.forEach(participant => {
-                        if (!expense.completedBy[participant]) {
+                        if (!expense.completedBy || !expense.completedBy[participant]) {
                             const amount = getParticipantAmount(expense, participant);
                             personalTotals[participant].owes += amount;
                         }
@@ -381,6 +408,25 @@
                 );
             };
 
+            if (loading) {
+                return React.createElement('div', { 
+                    className: "min-h-screen bg-gray-50 flex items-center justify-center" 
+                },
+                    React.createElement('div', { 
+                        className: "text-center" 
+                    }, [
+                        React.createElement('div', { 
+                            key: 'spinner',
+                            className: "animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" 
+                        }),
+                        React.createElement('p', { 
+                            key: 'text',
+                            className: "text-gray-600" 
+                        }, "데이터를 불러오는 중...")
+                    ])
+                );
+            }
+
             return React.createElement('div', { className: "min-h-screen bg-gray-50" }, [
                 // 헤더
                 React.createElement('div', { 
@@ -399,7 +445,15 @@
                             React.createElement('p', { 
                                 key: 'subtitle',
                                 className: "text-sm text-gray-600" 
-                            }, "7/11(금) ~ 7/13(일)")
+                            }, "7/11(금) ~ 7/13(일)"),
+                            // 연결 상태 표시
+                            React.createElement('div', { 
+                                key: 'status',
+                                className: `flex items-center justify-center gap-1 mt-1 text-xs ${connected ? 'text-green-600' : 'text-red-600'}` 
+                            }, [
+                                React.createElement(Wifi, { key: 'icon' }),
+                                React.createElement('span', { key: 'text' }, connected ? '실시간 연결됨' : '연결 끊김')
+                            ])
                         ]),
                         React.createElement('div', { 
                             key: 'totals',
@@ -488,7 +542,7 @@
                                             dateExpenses.map(expense => {
                                                 const categoryInfo = categories[expense.category];
                                                 const Icon = categoryInfo.icon;
-                                                const completedCount = expense.participants.filter(p => expense.completedBy[p]).length;
+                                                const completedCount = expense.participants ? expense.participants.filter(p => expense.completedBy && expense.completedBy[p]).length : 0;
                                                 
                                                 return React.createElement('div', { 
                                                     key: expense.id,
@@ -532,7 +586,7 @@
                                                                         React.createElement('div', { 
                                                                             key: 'status',
                                                                             className: "text-xs text-gray-500" 
-                                                                        }, `정산완료: ${completedCount}/${expense.participants.length}명`),
+                                                                        }, `정산완료: ${completedCount}/${expense.participants ? expense.participants.length : 0}명`),
                                                                         React.createElement('button', {
                                                                             key: 'toggle',
                                                                             onClick: () => toggleExpenseDetails(expense.id),
@@ -564,13 +618,13 @@
                                                                 ])
                                                             ]),
                                                             
-                                                            expandedExpenses[expense.id] && React.createElement('div', { 
+                                                            expandedExpenses[expense.id] && expense.participants && React.createElement('div', { 
                                                                 key: 'details',
                                                                 className: "grid grid-cols-2 gap-1 text-xs mt-2 pt-2 border-t border-gray-100" 
                                                             },
                                                                 expense.participants.map(participant => {
                                                                     const amount = getParticipantAmount(expense, participant);
-                                                                    const isCompleted = expense.completedBy[participant];
+                                                                    const isCompleted = expense.completedBy && expense.completedBy[participant];
                                                                     
                                                                     return React.createElement('div', { 
                                                                         key: participant,
@@ -785,7 +839,7 @@
                     ])
                 ),
                 
-                // 추가 폼 모달
+                // 경비 추가 폼 (간단 버전)
                 showAddForm && React.createElement('div', { 
                     key: 'addForm',
                     className: "fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end sm:items-center justify-center" 
@@ -815,7 +869,6 @@
                             ])
                         ),
                         
-                        // 폼 내용들...
                         React.createElement('div', { 
                             key: 'form',
                             className: "p-4 space-y-4" 
@@ -850,6 +903,27 @@
                                     className: "w-full border border-gray-300 rounded-lg px-3 py-3 text-base",
                                     placeholder: "50000"
                                 })
+                            ]),
+                            
+                            // 결제자 선택
+                            React.createElement('div', { key: 'payer' }, [
+                                React.createElement('label', { 
+                                    key: 'label',
+                                    className: "block text-sm font-medium text-gray-700 mb-2" 
+                                }, "결제자"),
+                                React.createElement('select', {
+                                    key: 'select',
+                                    value: newExpense.payer,
+                                    onChange: (e) => setNewExpense({...newExpense, payer: e.target.value}),
+                                    className: "w-full border border-gray-300 rounded-lg px-3 py-3 text-base"
+                                },
+                                    members.map(member => 
+                                        React.createElement('option', { 
+                                            key: member, 
+                                            value: member 
+                                        }, member)
+                                    )
+                                )
                             ])
                         ]),
                         
