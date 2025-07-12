@@ -290,18 +290,20 @@
                 const expense = expenses.find(e => e.id === expenseId);
                 const memberAmount = getParticipantAmount(expense, member);
                 
-                showConfirmDialog(
-                    '개인 정산 완료',
-                    `${member}님의 ${memberAmount.toLocaleString()}원 정산을 완료하시겠습니까?`,
-                    () => {
+                // 더 단순한 확인 방식
+                const userConfirm = window.confirm(`${member}님의 ${memberAmount.toLocaleString()}원 정산을 완료하시겠습니까?`);
+                
+                if (userConfirm) {
+                    try {
                         const newCompletedBy = {
                             ...expense.completedBy,
                             [member]: !expense.completedBy[member]
                         };
                         updateExpenseInFirebase(expenseId, { completedBy: newCompletedBy });
-                        hideConfirmDialog();
+                    } catch (error) {
+                        alert('정산 처리 중 오류가 발생했습니다: ' + error.message);
                     }
-                );
+                }
             };
 
             const toggleExpenseCompletion = (expenseId) => {
@@ -1109,11 +1111,20 @@
                                     e.preventDefault();
                                     e.stopPropagation();
                                     e.currentTarget.style.backgroundColor = '';
-                                    setTimeout(() => {
-                                        if (confirmDialog.onConfirm) {
+                                    // 즉시 실행 (setTimeout 제거)
+                                    try {
+                                        console.log('확인 버튼 클릭됨', confirmDialog);
+                                        if (confirmDialog && confirmDialog.onConfirm) {
+                                            console.log('onConfirm 함수 실행 중...');
                                             confirmDialog.onConfirm();
+                                            console.log('onConfirm 함수 실행 완료');
+                                        } else {
+                                            console.log('onConfirm 함수가 없습니다');
                                         }
-                                    }, 10);
+                                    } catch (error) {
+                                        console.error('확인 버튼 에러:', error);
+                                        alert('처리 중 오류가 발생했습니다: ' + error.message);
+                                    }
                                 },
                                 onTouchCancel: (e) => {
                                     e.currentTarget.style.backgroundColor = '';
@@ -1121,8 +1132,14 @@
                                 onClick: (e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    if (confirmDialog.onConfirm) {
-                                        confirmDialog.onConfirm();
+                                    try {
+                                        console.log('확인 버튼 onClick', confirmDialog);
+                                        if (confirmDialog && confirmDialog.onConfirm) {
+                                            confirmDialog.onConfirm();
+                                        }
+                                    } catch (error) {
+                                        console.error('확인 버튼 onClick 에러:', error);
+                                        alert('처리 중 오류가 발생했습니다: ' + error.message);
                                     }
                                 }
                             }, "확인")
