@@ -157,10 +157,23 @@
                 expensesRef.on('value', (snapshot) => {
                     const data = snapshot.val();
                     if (data) {
-                        const expensesList = Object.keys(data).map(key => ({
-                            ...data[key],
-                            id: key
-                        }));
+                        const expensesList = Object.keys(data).map(key => {
+                            const expense = data[key];
+                            // 데이터 안전성 보장
+                            return {
+                                ...expense,
+                                id: key,
+                                participants: expense.participants || [],
+                                completedBy: expense.completedBy || {},
+                                customSplit: expense.customSplit || {},
+                                amount: expense.amount || 0,
+                                payer: expense.payer || '',
+                                title: expense.title || '',
+                                category: expense.category || 'other',
+                                date: expense.date || new Date().toISOString().split('T')[0],
+                                time: expense.time || '00:00'
+                            };
+                        });
                         setExpenses(expensesList);
                     } else {
                         setExpenses([]);
@@ -287,22 +300,48 @@
             };
 
             const togglePersonalCompletion = (expenseId, member) => {
-                const expense = expenses.find(e => e.id === expenseId);
-                const memberAmount = getParticipantAmount(expense, member);
-                
-                // 더 단순한 확인 방식
-                const userConfirm = window.confirm(`${member}님의 ${memberAmount.toLocaleString()}원 정산을 완료하시겠습니까?`);
-                
-                if (userConfirm) {
-                    try {
-                        const newCompletedBy = {
-                            ...expense.completedBy,
-                            [member]: !expense.completedBy[member]
-                        };
-                        updateExpenseInFirebase(expenseId, { completedBy: newCompletedBy });
-                    } catch (error) {
-                        alert('정산 처리 중 오류가 발생했습니다: ' + error.message);
+                try {
+                    console.log('개인 정산 시작:', { expenseId, member });
+                    
+                    const expense = expenses.find(e => e && e.id === expenseId);
+                    if (!expense) {
+                        console.error('경비를 찾을 수 없음:', expenseId);
+                        alert('경비 정보를 찾을 수 없습니다.');
+                        return;
                     }
+                    
+                    if (!member || typeof member !== 'string') {
+                        console.error('잘못된 멤버 이름:', member);
+                        alert('멤버 정보가 올바르지 않습니다.');
+                        return;
+                    }
+                    
+                    const memberAmount = getParticipantAmount(expense, member);
+                    console.log('멤버 금액:', memberAmount);
+                    
+                    const userConfirm = window.confirm(`${member}님의 ${memberAmount.toLocaleString()}원 정산을 완료하시겠습니까?`);
+                    
+                    if (userConfirm) {
+                        // 매우 안전한 객체 처리
+                        const currentCompletedBy = expense.completedBy && typeof expense.completedBy === 'object' ? {...expense.completedBy} : {};
+                        const currentStatus = currentCompletedBy[member] === true;
+                        
+                        currentCompletedBy[member] = !currentStatus;
+                        
+                        console.log('정산 상태 업데이트:', { 
+                            expenseId, 
+                            member, 
+                            currentStatus, 
+                            newStatus: !currentStatus,
+                            newCompletedBy: currentCompletedBy
+                        });
+                        
+                        updateExpenseInFirebase(expenseId, { completedBy: currentCompletedBy });
+                    }
+                    
+                } catch (error) {
+                    console.error('개인 정산 처리 에러:', error);
+                    alert('정산 처리 중 오류가 발생했습니다: ' + (error.message || '알 수 없는 오류'));
                 }
             };
 
@@ -329,20 +368,65 @@
             };
 
             const isExpenseCompleted = (expense) => {
-                return expense.participants && expense.participants.every(participant => expense.completedBy && expense.completedBy[participant]);
+                try {
+                    if (!expense || typeof expense !== 'object') {
+                        return false;
+                    }
+                    
+                    const participants = expense.participants;
+                    if (!Array.isArray(participants) || participants.length === 0) {
+                        return false;
+                    }
+                    
+                    const completedBy = expense.completedBy;
+                    if (!completedBy || typeof completedBy !== 'object') {
+                        return false;
+                    }
+                    
+                    return participants.every(participant => {
+                        if (!participant || typeof participant !== 'string') {
+                            return false;
+                        }
+                        return completedBy[participant] === true;
+                    });
+                } catch (error) {
+                    console.error('isExpenseCompleted 에러:', error);
+                    return false;
+                }
             };
 
             const getParticipantAmount = (expense, member) => {
-                if (expense.splitType === 'custom' && expense.customSplit && expense.customSplit[member]) {
-                    return expense.customSplit[member];
+                try {
+                    if (!expense || typeof expense !== 'object' || !member || typeof member !== 'string') {
+                        return 0;
+                    }
+                    
+                    const participants = expense.participants;
+                    if (!Array.isArray(participants) || !participants.includes(member)) {
+                        return 0;
+                    }
+                    
+                    const customSplit = expense.customSplit && typeof expense.customSplit === 'object' ? expense.customSplit : {};
+                    
+                    if (expense.splitType === 'custom' && customSplit[member] && typeof customSplit[member] === 'number') {
+                        return customSplit[member];
+                    }
+                    
+                    const totalAmount = typeof expense.amount === 'number' ? expense.amount : 0;
+                    const customTotal = Object.values(customSplit).reduce((sum, val) => {
+                        return sum + (typeof val === 'number' ? val : 0);
+                    }, 0);
+                    
+                    const remainingAmount = totalAmount - customTotal;
+                    const remainingParticipants = participants.filter(p => 
+                        p && typeof p === 'string' && !customSplit[p]
+                    );
+                    
+                    return remainingParticipants.length > 0 ? Math.round(remainingAmount / remainingParticipants.length) : 0;
+                } catch (error) {
+                    console.error('getParticipantAmount 에러:', error, { expense, member });
+                    return 0;
                 }
-                
-                const totalAmount = expense.amount;
-                const customTotal = Object.values(expense.customSplit || {}).reduce((sum, val) => sum + val, 0);
-                const remainingAmount = totalAmount - customTotal;
-                const remainingParticipants = expense.participants.filter(p => !(expense.customSplit || {})[p]);
-                
-                return remainingParticipants.length > 0 ? Math.round(remainingAmount / remainingParticipants.length) : 0;
             };
 
             const addExpense = () => {
@@ -380,28 +464,95 @@
             };
 
             const calculatePersonalExpenses = () => {
-                const personalTotals = {};
-                members.forEach(member => {
-                    personalTotals[member] = { paid: 0, owes: 0, net: 0 };
-                });
-
-                const activeExpenses = expenses.filter(expense => !isExpenseCompleted(expense));
-
-                activeExpenses.forEach(expense => {
-                    personalTotals[expense.payer].paid += expense.amount;
-                    expense.participants.forEach(participant => {
-                        if (!expense.completedBy || !expense.completedBy[participant]) {
-                            const amount = getParticipantAmount(expense, participant);
-                            personalTotals[participant].owes += amount;
+                try {
+                    const personalTotals = {};
+                    
+                    // 안전한 멤버 초기화
+                    if (!Array.isArray(members)) {
+                        console.error('members가 배열이 아님');
+                        return {};
+                    }
+                    
+                    members.forEach(member => {
+                        if (member && typeof member === 'string') {
+                            personalTotals[member] = { paid: 0, owes: 0, net: 0 };
                         }
                     });
-                });
 
-                Object.keys(personalTotals).forEach(member => {
-                    personalTotals[member].net = personalTotals[member].paid - personalTotals[member].owes;
-                });
+                    const activeExpenses = expenses.filter(expense => {
+                        try {
+                            return expense && typeof expense === 'object' && !isExpenseCompleted(expense);
+                        } catch (error) {
+                            console.error('activeExpenses 필터 에러:', error);
+                            return false;
+                        }
+                    });
 
-                return personalTotals;
+                    activeExpenses.forEach(expense => {
+                        try {
+                            if (!expense || typeof expense !== 'object') {
+                                return;
+                            }
+                            
+                            // 지불한 금액 추가
+                            const payer = expense.payer;
+                            if (payer && typeof payer === 'string' && personalTotals[payer]) {
+                                const amount = typeof expense.amount === 'number' ? expense.amount : 0;
+                                personalTotals[payer].paid += amount;
+                            }
+                            
+                            // 부담할 금액 계산
+                            const participants = expense.participants;
+                            const completedBy = expense.completedBy && typeof expense.completedBy === 'object' ? expense.completedBy : {};
+                            
+                            if (Array.isArray(participants)) {
+                                participants.forEach(participant => {
+                                    try {
+                                        if (participant && 
+                                            typeof participant === 'string' && 
+                                            personalTotals[participant] && 
+                                            completedBy[participant] !== true) {
+                                            
+                                            const amount = getParticipantAmount(expense, participant);
+                                            if (typeof amount === 'number' && amount >= 0) {
+                                                personalTotals[participant].owes += amount;
+                                            }
+                                        }
+                                    } catch (error) {
+                                        console.error('participant 처리 에러:', error, { participant, expense });
+                                    }
+                                });
+                            }
+                        } catch (error) {
+                            console.error('expense 처리 에러:', error, expense);
+                        }
+                    });
+
+                    // 순 금액 계산
+                    Object.keys(personalTotals).forEach(member => {
+                        try {
+                            if (personalTotals[member] && typeof personalTotals[member] === 'object') {
+                                const paid = personalTotals[member].paid || 0;
+                                const owes = personalTotals[member].owes || 0;
+                                personalTotals[member].net = paid - owes;
+                            }
+                        } catch (error) {
+                            console.error('net 계산 에러:', error, { member });
+                        }
+                    });
+
+                    return personalTotals;
+                } catch (error) {
+                    console.error('calculatePersonalExpenses 전체 에러:', error);
+                    // 빈 객체라도 반환해서 앱이 크래시되지 않도록
+                    const safeTotals = {};
+                    members.forEach(member => {
+                        if (member && typeof member === 'string') {
+                            safeTotals[member] = { paid: 0, owes: 0, net: 0 };
+                        }
+                    });
+                    return safeTotals;
+                }
             };
 
             const calculateCategoryData = () => {
@@ -652,7 +803,20 @@
                                             dateExpenses.map(expense => {
                                                 const categoryInfo = categories[expense.category];
                                                 const Icon = categoryInfo.icon;
-                                                const completedCount = expense.participants ? expense.participants.filter(p => expense.completedBy && expense.completedBy[p]).length : 0;
+                                                                                                                const completedCount = (() => {
+                                                                    try {
+                                                                        if (!expense || !Array.isArray(expense.participants)) {
+                                                                            return 0;
+                                                                        }
+                                                                        const completedBy = expense.completedBy && typeof expense.completedBy === 'object' ? expense.completedBy : {};
+                                                                        return expense.participants.filter(p => {
+                                                                            return p && typeof p === 'string' && completedBy[p] === true;
+                                                                        }).length;
+                                                                    } catch (error) {
+                                                                        console.error('completedCount 계산 에러:', error);
+                                                                        return 0;
+                                                                    }
+                                                                })();
                                                 
                                                 return React.createElement('div', { 
                                                     key: expense.id,
@@ -765,44 +929,54 @@
                                                                 ])
                                                             ]),
                                                             
-                                                            expandedExpenses[expense.id] && expense.participants && React.createElement('div', { 
+                                                            expandedExpenses[expense.id] && expense.participants && Array.isArray(expense.participants) && React.createElement('div', { 
                                                                 key: 'details',
                                                                 className: "grid grid-cols-2 gap-1 text-xs mt-2 pt-2 border-t border-gray-100" 
                                                             },
                                                                 expense.participants.map(participant => {
-                                                                    const amount = getParticipantAmount(expense, participant);
-                                                                    const isCompleted = expense.completedBy && expense.completedBy[participant];
-                                                                    
-                                                                    return React.createElement('div', { 
-                                                                        key: participant,
-                                                                        className: `flex items-center justify-between p-2 rounded border ${
-                                                                            isCompleted ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
-                                                                        }` 
-                                                                    }, [
-                                                                        React.createElement('span', { 
-                                                                            key: 'name',
-                                                                            className: isCompleted ? 'text-green-700 line-through' : 'text-gray-700' 
-                                                                        }, participant),
-                                                                        React.createElement('div', { 
-                                                                            key: 'amount',
-                                                                            className: "flex items-center gap-1" 
+                                                                    try {
+                                                                        if (!participant || typeof participant !== 'string') {
+                                                                            return null;
+                                                                        }
+                                                                        
+                                                                        const amount = getParticipantAmount(expense, participant);
+                                                                        const completedBy = expense.completedBy && typeof expense.completedBy === 'object' ? expense.completedBy : {};
+                                                                        const isCompleted = completedBy[participant] === true;
+                                                                        
+                                                                        return React.createElement('div', { 
+                                                                            key: participant,
+                                                                            className: `flex items-center justify-between p-2 rounded border ${
+                                                                                isCompleted ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                                                                            }` 
                                                                         }, [
                                                                             React.createElement('span', { 
-                                                                                key: 'value',
+                                                                                key: 'name',
                                                                                 className: isCompleted ? 'text-green-700 line-through' : 'text-gray-700' 
-                                                                            }, `${amount.toLocaleString()}원`),
-                                                                            React.createElement('button', {
-                                                                                key: 'check',
-                                                                                onClick: () => togglePersonalCompletion(expense.id, participant),
-                                                                                className: `p-1 rounded ${
-                                                                                    isCompleted 
-                                                                                        ? 'text-green-600 hover:text-green-700' 
-                                                                                        : 'text-gray-400 hover:text-green-600'
-                                                                                }`
-                                                                            }, React.createElement(Check))
-                                                                        ])
-                                                                    ]);
-                                                                })
+                                                                            }, participant),
+                                                                            React.createElement('div', { 
+                                                                                key: 'amount',
+                                                                                className: "flex items-center gap-1" 
+                                                                            }, [
+                                                                                React.createElement('span', { 
+                                                                                    key: 'value',
+                                                                                    className: isCompleted ? 'text-green-700 line-through' : 'text-gray-700' 
+                                                                                }, `${amount.toLocaleString()}원`),
+                                                                                React.createElement('button', {
+                                                                                    key: 'check',
+                                                                                    onClick: () => togglePersonalCompletion(expense.id, participant),
+                                                                                    className: `p-1 rounded ${
+                                                                                        isCompleted 
+                                                                                            ? 'text-green-600 hover:text-green-700' 
+                                                                                            : 'text-gray-400 hover:text-green-600'
+                                                                                    }`
+                                                                                }, React.createElement(Check))
+                                                                            ])
+                                                                        ]);
+                                                                    } catch (error) {
+                                                                        console.error('participant 렌더링 에러:', error, { participant, expense });
+                                                                        return null;
+                                                                    }
+                                                                }).filter(Boolean) // null 제거
                                                             )
                                                         ])
                                                     ])
