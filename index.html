@@ -773,46 +773,6 @@
                     ])
                 );
             }
-
-            const startEdit = (expense) => {
-                setEditingExpense(expense);
-                setFormData({
-                    title: expense.title,
-                    amount: expense.amount.toString(),
-                    payer: expense.payer,
-                    participants: [...expense.participants],
-                    category: expense.category,
-                    splitType: expense.splitType || 'equal',
-                    customSplit: expense.customSplit || {},
-                    date: expense.date,
-                    time: expense.time
-                });
-                setShowAddForm(true);
-                setShowExpenseMenu({});
-            };
-
-            if (loading) {
-                return React.createElement('div', { 
-                    className: "min-h-screen water-theme flex items-center justify-center" 
-                }, 
-                    React.createElement('div', { className: "text-center text-white" }, [
-                        React.createElement('div', { 
-                            key: 'spinner',
-                            className: "inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4" 
-                        }),
-                        React.createElement('p', { key: 'text' }, "🏊‍♀️ 케리비안베이 데이터 로딩중..."),
-                        React.createElement('p', { 
-                            key: 'tip',
-                            className: "text-xs text-white/70 mt-2" 
-                        }, "10초 이상 걸리면 새로고침 해주세요"),
-                        React.createElement('button', {
-                            key: 'skip',
-                            onClick: () => setLoading(false),
-                            className: "mt-4 px-4 py-2 bg-white/20 rounded-lg text-white text-sm hover:bg-white/30"
-                        }, "로딩 건너뛰기")
-                    ])
-                );
-            }
                 // 🏊‍♀️ 워터파크 테마 헤더
                 React.createElement('div', { 
                     key: 'header',
@@ -1363,8 +1323,19 @@
                             ])
                         ])
                     ])
-                )
             ]);
+        }
+
+        // React 18 호환 렌더링
+        const container = document.getElementById('root');
+        if (typeof ReactDOM.createRoot === 'function') {
+            // React 18
+            const root = ReactDOM.createRoot(container);
+            root.render(React.createElement(App));
+        } else {
+            // React 17 fallback
+            ReactDOM.render(React.createElement(App), container);
+        }
         }
 
         // React 18 호환 렌더링
