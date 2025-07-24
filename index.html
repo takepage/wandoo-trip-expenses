@@ -132,7 +132,7 @@
             database = null;
         }
 
-        // 🏊‍♀️ 새로운 여행 멤버 (6명) + 활동 로그 상태
+        // 🏊‍♀️ 새로운 여행 멤버 (6명)
         const members = ['태웅', '재원', '재헌', '승우', '태호', '진형'];
         
         const categories = [
@@ -142,12 +142,6 @@
             { id: 'activity', name: '활동비', icon: '🏊‍♀️', color: 'bg-purple-100 text-purple-800' },
             { id: 'other', name: '기타', icon: '💦', color: 'bg-gray-100 text-gray-800' }
         ];
-
-        // 💜 활동 로그 시스템 추가
-        const [activityLogs, setActivityLogs] = useState([]);
-        const [showGirlfriendView, setShowGirlfriendView] = useState(false);
-        const [showActivityForm, setShowActivityForm] = useState(false);
-        const [newActivity, setNewActivity] = useState('');
 
         function App() {
             // 상태 관리
@@ -163,13 +157,6 @@
             const [clickCount, setClickCount] = useState(0);
             const [showEasterEgg, setShowEasterEgg] = useState(false);
             const [easterEggMessage, setEasterEggMessage] = useState('');
-
-            // 💜 활동 로그 시스템 상태
-            const [activityLogs, setActivityLogs] = useState([]);
-            const [showGirlfriendView, setShowGirlfriendView] = useState(false);
-            const [showActivityForm, setShowActivityForm] = useState(false);
-            const [newActivity, setNewActivity] = useState('');
-            const [pokeNotifications, setPokeNotifications] = useState([]);
 
             // 폼 상태
             const [formData, setFormData] = useState({
@@ -198,8 +185,6 @@
 
                 try {
                     const expensesRef = database.ref('expenses');
-                    const activityRef = database.ref('activities');
-                    const pokeRef = database.ref('pokes');
                     
                     // 연결 상태 확인
                     const connectedRef = database.ref('.info/connected');
@@ -209,9 +194,9 @@
                         setConnected(isConnected);
                     });
 
-                    // 경비 데이터 동기화
+                    // 실시간 데이터 동기화
                     expensesRef.on('value', (snapshot) => {
-                        console.log('📊 경비 데이터 수신:', snapshot.val());
+                        console.log('📊 데이터 수신:', snapshot.val());
                         const data = snapshot.val();
                         if (data) {
                             const expensesList = Object.keys(data).map(key => {
@@ -239,44 +224,6 @@
                         setLoading(false);
                     });
 
-                    // 💜 활동 로그 동기화
-                    activityRef.on('value', (snapshot) => {
-                        console.log('📝 활동 로그 수신:', snapshot.val());
-                        const data = snapshot.val();
-                        if (data) {
-                            const logsList = Object.keys(data).map(key => ({
-                                ...data[key],
-                                id: key
-                            })).sort((a, b) => b.timestamp - a.timestamp); // 최신순
-                            setActivityLogs(logsList);
-                            console.log('✅ 활동 로그 로드 완료:', logsList.length, '개');
-                        } else {
-                            setActivityLogs([]);
-                        }
-                    });
-
-                    // 💜 찌르기 알림 동기화
-                    pokeRef.on('value', (snapshot) => {
-                        console.log('💜 찌르기 알림 수신:', snapshot.val());
-                        const data = snapshot.val();
-                        if (data) {
-                            const pokeList = Object.keys(data).map(key => ({
-                                ...data[key],
-                                id: key
-                            })).sort((a, b) => b.timestamp - a.timestamp);
-                            setPokeNotifications(pokeList);
-                            
-                            // 새로운 찌르기가 있으면 알림 표시
-                            const latestPoke = pokeList[0];
-                            if (latestPoke && (Date.now() - latestPoke.timestamp < 10000)) {
-                                alert(`💜 ${latestPoke.message}`);
-                                setShowActivityForm(true);
-                            }
-                        } else {
-                            setPokeNotifications([]);
-                        }
-                    });
-
                     // 타임아웃 설정 (10초 후 강제 로딩 완료)
                     const timeout = setTimeout(() => {
                         console.log('⏰ 로딩 타임아웃, 강제 완료');
@@ -288,8 +235,6 @@
                         console.log('🔄 Firebase 리스너 해제');
                         clearTimeout(timeout);
                         expensesRef.off();
-                        activityRef.off();
-                        pokeRef.off();
                         connectedRef.off();
                     };
                 } catch (error) {
@@ -382,7 +327,7 @@
 
             // 🗑️ 전체 데이터 초기화 함수
             const clearAllData = () => {
-                const userConfirm = window.confirm(`⚠️ 정말 모든 데이터를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없으며, 활동 로그도 모두 사라집니다.`);
+                const userConfirm = window.confirm(`⚠️ 정말 모든 경비 데이터를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없으며, 완도 여행 데이터가 모두 사라집니다.`);
                 
                 if (userConfirm) {
                     const doubleConfirm = window.confirm(`🔥 마지막 확인!\n\n정말로 모든 데이터를 삭제하고 새로 시작하시겠습니까?`);
@@ -395,8 +340,6 @@
                         try {
                             console.log('🗑️ 전체 데이터 삭제 시작...');
                             database.ref('expenses').remove();
-                            database.ref('activities').remove();
-                            database.ref('pokes').remove();
                             alert('✅ 모든 데이터가 삭제되었습니다!\n새로운 여행을 시작하세요! 🏊‍♀️');
                         } catch (error) {
                             console.error('데이터 삭제 에러:', error);
@@ -404,42 +347,6 @@
                         }
                     }
                 }
-            };
-
-            // 폼 핸들러들 (활동 로그 추가 포함)
-            const handleSubmit = (e) => {
-                e.preventDefault();
-                
-                if (!formData.title.trim() || !formData.amount) {
-                    alert('제목과 금액을 입력해주세요.');
-                    return;
-                }
-
-                const expenseData = {
-                    ...formData,
-                    amount: parseInt(formData.amount),
-                    participants: [...formData.participants]
-                };
-
-                if (editingExpense) {
-                    updateExpenseInFirebase(editingExpense.id, expenseData);
-                } else {
-                    addExpenseWithActivity(expenseData);
-                }
-
-                setShowAddForm(false);
-                setEditingExpense(null);
-                setFormData({
-                    title: '',
-                    amount: '',
-                    payer: members[0],
-                    participants: [...members],
-                    category: 'food',
-                    splitType: 'equal',
-                    customSplit: {},
-                    date: new Date().toISOString().split('T')[0],
-                    time: new Date().toTimeString().slice(0, 5)
-                });
             };
 
             // 정산 관련 함수들
@@ -773,6 +680,8 @@
                     ])
                 );
             }
+
+            return React.createElement('div', { className: "min-h-screen bg-gray-50" }, [
                 // 🏊‍♀️ 워터파크 테마 헤더
                 React.createElement('div', { 
                     key: 'header',
@@ -809,27 +718,14 @@
                             // 🗑️ 데이터 초기화 버튼 (작게, 오른쪽 구석에)
                             React.createElement('div', {
                                 key: 'admin-controls',
-                                className: "absolute top-2 right-2 flex items-center gap-2"
-                            }, [
-                                // 💜 여자친구 뷰 토글 버튼
+                                className: "absolute top-2 right-2"
+                            },
                                 React.createElement('button', {
-                                    key: 'girlfriend-view',
-                                    onClick: () => setShowGirlfriendView(!showGirlfriendView),
-                                    className: `text-xs px-3 py-1 rounded transition-all ${
-                                        showGirlfriendView 
-                                            ? 'bg-pink-500 text-white' 
-                                            : 'bg-white/20 hover:bg-white/40 text-white'
-                                    }`,
-                                    title: showGirlfriendView ? "남자들 뷰로 전환" : "여자친구 뷰로 전환"
-                                }, showGirlfriendView ? "💙 남자들" : "💜 여친"),
-                                
-                                React.createElement('button', {
-                                    key: 'clear-data',
                                     onClick: clearAllData,
                                     className: "text-xs px-2 py-1 bg-red-500/20 hover:bg-red-500/40 text-white rounded opacity-50 hover:opacity-100 transition-opacity",
                                     title: "모든 데이터 삭제"
                                 }, "🗑️")
-                            ])
+                            )
                         ]),
                         React.createElement('div', { 
                             key: 'totals',
@@ -1323,19 +1219,8 @@
                             ])
                         ])
                     ])
+                )
             ]);
-        }
-
-        // React 18 호환 렌더링
-        const container = document.getElementById('root');
-        if (typeof ReactDOM.createRoot === 'function') {
-            // React 18
-            const root = ReactDOM.createRoot(container);
-            root.render(React.createElement(App));
-        } else {
-            // React 17 fallback
-            ReactDOM.render(React.createElement(App), container);
-        }
         }
 
         // React 18 호환 렌더링
