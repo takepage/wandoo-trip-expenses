@@ -306,6 +306,30 @@
                 }
             };
 
+            // 🗑️ 전체 데이터 초기화 함수
+            const clearAllData = () => {
+                const userConfirm = window.confirm(`⚠️ 정말 모든 경비 데이터를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없으며, 완도 여행 데이터가 모두 사라집니다.`);
+                
+                if (userConfirm) {
+                    const doubleConfirm = window.confirm(`🔥 마지막 확인!\n\n정말로 모든 데이터를 삭제하고 새로 시작하시겠습니까?`);
+                    
+                    if (doubleConfirm) {
+                        if (!database) {
+                            alert('⚠️ 오프라인 상태입니다.');
+                            return;
+                        }
+                        try {
+                            console.log('🗑️ 전체 데이터 삭제 시작...');
+                            database.ref('expenses').remove();
+                            alert('✅ 모든 데이터가 삭제되었습니다!\n새로운 여행을 시작하세요! 🏊‍♀️');
+                        } catch (error) {
+                            console.error('데이터 삭제 에러:', error);
+                            alert('❌ 삭제 중 오류가 발생했습니다: ' + error.message);
+                        }
+                    }
+                }
+            };
+
             // 정산 관련 함수들
             const togglePersonalCompletion = (expenseId, member) => {
                 try {
@@ -642,7 +666,7 @@
                 // 🏊‍♀️ 워터파크 테마 헤더
                 React.createElement('div', { 
                     key: 'header',
-                    className: "water-theme shadow-lg sticky top-0 z-10" 
+                    className: "water-theme shadow-lg sticky top-0 z-10 relative" 
                 }, 
                     React.createElement('div', { className: "px-4 py-4" }, [
                         React.createElement('div', { 
@@ -670,7 +694,19 @@
                             }, [
                                 React.createElement('span', { key: 'icon' }, '🌊'),
                                 React.createElement('span', { key: 'text' }, connected ? '실시간 연결됨' : '⚠️ 연결 끊김')
-                            ])
+                            ]),
+                            
+                            // 🗑️ 데이터 초기화 버튼 (작게, 오른쪽 구석에)
+                            React.createElement('div', {
+                                key: 'admin-controls',
+                                className: "absolute top-2 right-2"
+                            },
+                                React.createElement('button', {
+                                    onClick: clearAllData,
+                                    className: "text-xs px-2 py-1 bg-red-500/20 hover:bg-red-500/40 text-white rounded opacity-50 hover:opacity-100 transition-opacity",
+                                    title: "모든 데이터 삭제"
+                                }, "🗑️")
+                            )
                         ]),
                         React.createElement('div', { 
                             key: 'totals',
