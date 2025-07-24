@@ -76,7 +76,7 @@
         const { useState, useEffect } = React;
         const { Plus, Check, MoreVertical, Edit3, Trash2, Users, AlertCircle, Wifi, ChevronDown, ChevronUp, Waves, Droplets } = lucide;
 
-        // 🔥 Firebase 설정 (기존과 동일)
+        // 🔥 Firebase 설정 (더 안전한 버전)
         const firebaseConfig = {
             apiKey: "AIzaSyBn2VFGn7dQHaXCrWOeVhtQFRSd9wjPMao",
             authDomain: "wandoo-trip-expenses.firebaseapp.com",
@@ -87,8 +87,19 @@
             appId: "1:123456789:web:abcdef123456"
         };
 
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
+        // Firebase 초기화 안전성 검사
+        let database;
+        try {
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            database = firebase.database();
+            console.log('✅ Firebase 연결 성공');
+        } catch (error) {
+            console.error('❌ Firebase 연결 실패:', error);
+            // Firebase 연결 실패 시 로컬 모드로 동작
+            database = null;
+        }
 
         // 🏊‍♀️ 새로운 여행 멤버 (6명)
         const members = ['태웅', '재원', '재헌', '승우', '태호', '진형'];
@@ -129,47 +140,77 @@
                 time: new Date().toTimeString().slice(0, 5)
             });
 
-            // 🔥 Firebase 연결 및 실시간 데이터 동기화
+            // 🔥 Firebase 연결 및 실시간 데이터 동기화 (안전 버전)
             useEffect(() => {
-                const expensesRef = database.ref('expenses');
+                console.log('🔥 Firebase 연결 시작...');
                 
-                // 연결 상태 확인
-                const connectedRef = database.ref('.info/connected');
-                connectedRef.on('value', (snapshot) => {
-                    setConnected(snapshot.val() === true);
-                });
-
-                // 실시간 데이터 동기화
-                expensesRef.on('value', (snapshot) => {
-                    const data = snapshot.val();
-                    if (data) {
-                        const expensesList = Object.keys(data).map(key => {
-                            const expense = data[key];
-                            return {
-                                ...expense,
-                                id: key,
-                                participants: expense.participants || [],
-                                completedBy: expense.completedBy || {},
-                                customSplit: expense.customSplit || {},
-                                amount: expense.amount || 0,
-                                payer: expense.payer || '',
-                                title: expense.title || '',
-                                category: expense.category || 'other',
-                                date: expense.date || new Date().toISOString().split('T')[0],
-                                time: expense.time || '00:00'
-                            };
-                        });
-                        setExpenses(expensesList);
-                    } else {
-                        setExpenses([]);
-                    }
+                // Firebase가 없으면 로컬 모드로 동작
+                if (!database) {
+                    console.log('⚠️ Firebase 연결 불가, 로컬 모드로 동작');
+                    setConnected(false);
                     setLoading(false);
-                });
+                    return;
+                }
 
-                return () => {
-                    expensesRef.off();
-                    connectedRef.off();
-                };
+                try {
+                    const expensesRef = database.ref('expenses');
+                    
+                    // 연결 상태 확인
+                    const connectedRef = database.ref('.info/connected');
+                    connectedRef.on('value', (snapshot) => {
+                        const isConnected = snapshot.val() === true;
+                        console.log('🌊 연결 상태:', isConnected);
+                        setConnected(isConnected);
+                    });
+
+                    // 실시간 데이터 동기화
+                    expensesRef.on('value', (snapshot) => {
+                        console.log('📊 데이터 수신:', snapshot.val());
+                        const data = snapshot.val();
+                        if (data) {
+                            const expensesList = Object.keys(data).map(key => {
+                                const expense = data[key];
+                                return {
+                                    ...expense,
+                                    id: key,
+                                    participants: expense.participants || [],
+                                    completedBy: expense.completedBy || {},
+                                    customSplit: expense.customSplit || {},
+                                    amount: expense.amount || 0,
+                                    payer: expense.payer || '',
+                                    title: expense.title || '',
+                                    category: expense.category || 'other',
+                                    date: expense.date || new Date().toISOString().split('T')[0],
+                                    time: expense.time || '00:00'
+                                };
+                            });
+                            setExpenses(expensesList);
+                            console.log('✅ 경비 데이터 로드 완료:', expensesList.length, '개');
+                        } else {
+                            setExpenses([]);
+                            console.log('📝 경비 데이터 없음');
+                        }
+                        setLoading(false);
+                    });
+
+                    // 타임아웃 설정 (10초 후 강제 로딩 완료)
+                    const timeout = setTimeout(() => {
+                        console.log('⏰ 로딩 타임아웃, 강제 완료');
+                        setLoading(false);
+                    }, 10000);
+
+                    // 컴포넌트 언마운트 시 리스너 해제
+                    return () => {
+                        console.log('🔄 Firebase 리스너 해제');
+                        clearTimeout(timeout);
+                        expensesRef.off();
+                        connectedRef.off();
+                    };
+                } catch (error) {
+                    console.error('❌ Firebase 연결 중 에러:', error);
+                    setConnected(false);
+                    setLoading(false);
+                }
             }, []);
 
             // 외부 클릭 시 메뉴 닫기
@@ -200,9 +241,15 @@
                 }
             };
 
-            // Firebase 업데이트 함수들
+            // Firebase 업데이트 함수들 (안전 버전)
             const updateExpenseInFirebase = (expenseId, updates) => {
+                if (!database) {
+                    console.log('⚠️ Firebase 연결 없음, 업데이트 불가');
+                    alert('오프라인 상태입니다.');
+                    return;
+                }
                 try {
+                    console.log('🔄 Firebase 업데이트:', { expenseId, updates });
                     database.ref(`expenses/${expenseId}`).update(updates);
                 } catch (error) {
                     console.error('Firebase 업데이트 에러:', error);
@@ -211,7 +258,13 @@
             };
 
             const deleteExpenseFromFirebase = (expenseId) => {
+                if (!database) {
+                    console.log('⚠️ Firebase 연결 없음, 삭제 불가');
+                    alert('오프라인 상태입니다.');
+                    return;
+                }
                 try {
+                    console.log('🗑️ Firebase 삭제:', expenseId);
                     database.ref(`expenses/${expenseId}`).remove();
                 } catch (error) {
                     console.error('Firebase 삭제 에러:', error);
@@ -220,7 +273,13 @@
             };
 
             const addExpenseToFirebase = (expenseData) => {
+                if (!database) {
+                    console.log('⚠️ Firebase 연결 없음, 추가 불가');
+                    alert('오프라인 상태입니다.');
+                    return null;
+                }
                 try {
+                    console.log('➕ Firebase 추가:', expenseData);
                     const newExpenseRef = database.ref('expenses').push();
                     newExpenseRef.set({
                         ...expenseData,
@@ -553,7 +612,16 @@
                             key: 'spinner',
                             className: "inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4" 
                         }),
-                        React.createElement('p', { key: 'text' }, "🏊‍♀️ 케리비안베이 데이터 로딩중...")
+                        React.createElement('p', { key: 'text' }, "🏊‍♀️ 케리비안베이 데이터 로딩중..."),
+                        React.createElement('p', { 
+                            key: 'tip',
+                            className: "text-xs text-white/70 mt-2" 
+                        }, "10초 이상 걸리면 새로고침 해주세요"),
+                        React.createElement('button', {
+                            key: 'skip',
+                            onClick: () => setLoading(false),
+                            className: "mt-4 px-4 py-2 bg-white/20 rounded-lg text-white text-sm hover:bg-white/30"
+                        }, "로딩 건너뛰기")
                     ])
                 );
             }
