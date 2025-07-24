@@ -3,18 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>완도 여행 경비 관리</title>
-    <script crossorigin src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+    <title>진짜배기 여행 경비</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
-    
     <style>
         body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
+        
+        /* 워터파크 테마 CSS */
+        .water-theme {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .water-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .water-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .water-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        /* 물방울 애니메이션 */
+        @keyframes bubble {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-20px) scale(1.1); opacity: 0; }
+        }
+        
+        .bubble {
+            animation: bubble 2s infinite;
+        }
+        
+        /* 이스터에그 스타일 */
+        .easter-egg {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .easter-egg:hover {
+            transform: scale(1.05);
+        }
         
         /* 모바일 터치 최적화 */
         .mobile-button {
@@ -28,120 +67,67 @@
             touch-action: manipulation;
             cursor: pointer;
         }
-        
-        .mobile-button:active {
-            transform: scale(0.98);
-            transition: transform 0.1s;
-        }
-        
-        /* 확인 다이얼로그 터치 영역 확대 */
-        .dialog-button {
-            min-height: 50px !important;
-            min-width: 120px !important;
-            font-size: 16px !important;
-            font-weight: 600 !important;
-        }
-        
-        /* iOS Safari 터치 문제 해결 */
-        .dialog-overlay {
-            -webkit-overflow-scrolling: touch;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-        }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        // 🔥 Firebase 설정
+        const { useState, useEffect } = React;
+        const { Plus, Check, MoreVertical, Edit3, Trash2, Users, AlertCircle, Wifi, ChevronDown, ChevronUp, Waves, Droplets } = lucide;
+
+        // 🔥 Firebase 설정 (기존과 동일)
         const firebaseConfig = {
-            apiKey: "AIzaSyCxanGX2IKOkI_39iysv26cgaLtLI7ll2M",
+            apiKey: "AIzaSyBn2VFGn7dQHaXCrWOeVhtQFRSd9wjPMao",
             authDomain: "wandoo-trip-expenses.firebaseapp.com",
-            databaseURL: "https://wandoo-trip-expenses-default-rtdb.asia-southeast1.firebasedatabase.app",
+            databaseURL: "https://wandoo-trip-expenses-default-rtdb.firebaseio.com",
             projectId: "wandoo-trip-expenses",
-            storageBucket: "wandoo-trip-expenses.firebasestorage.app",
-            messagingSenderId: "218538594260",
-            appId: "1:218538594260:web:1ee2b2d9704d60661d1041",
-            measurementId: "G-TXFSD23Z04"
+            storageBucket: "wandoo-trip-expenses.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef123456"
         };
 
-        // Firebase 초기화
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
-        
-        const { useState, useEffect } = React;
-        
-        // Lucide Icons
-        const PlusCircle = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8m-4-4h8"/></svg>;
-        const Calculator = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h8M8 14h4M8 18h4"/></svg>;
-        const Car = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 16H9m10 0h3m-3 0a3 3 0 11-6 0m6 0a3 3 0 11-6 0m-9-8h1m4 0h6m-6 0c2 0 4-2 4-4s-2-4-4-4-4 2-4 4 2 4 4 4z"/></svg>;
-        const Home = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>;
-        const Coffee = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8h1a4 4 0 010 8h-1M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8zM6 1v3M10 1v3M14 1v3"/></svg>;
-        const Receipt = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M16 8h-6a2 2 0 100 4h4a2 2 0 110 4H8"/><path d="M12 6V4M12 20v-2"/></svg>;
-        const MoreHorizontal = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>;
-        const Settings = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>;
-        const Check = () => <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20,6 9,17 4,12"/></svg>;
-        const X = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
-        const CheckCircle = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>;
-        const AlertCircle = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>;
-        const ChevronDown = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6,9 12,15 18,9"/></svg>;
-        const ChevronUp = () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18,15 12,9 6,15"/></svg>;
-        const Wifi = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12.55a11 11 0 0114 0"/><path d="M8.21 16.89a7 7 0 017.58 0"/><path d="M12 20h.01"/></svg>;
-        const Edit = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
-        const Trash = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>;
-        const MoreVertical = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>;
 
-        const WandooExpenseDashboard = () => {
+        // 🏊‍♀️ 새로운 여행 멤버 (6명)
+        const members = ['태웅', '재원', '재헌', '승우', '태호', '진형'];
+        
+        const categories = [
+            { id: 'transport', name: '교통비', icon: '🚗', color: 'bg-blue-100 text-blue-800' },
+            { id: 'accommodation', name: '숙박비', icon: '🏠', color: 'bg-green-100 text-green-800' },
+            { id: 'food', name: '식비', icon: '🍖', color: 'bg-orange-100 text-orange-800' },
+            { id: 'activity', name: '활동비', icon: '🏊‍♀️', color: 'bg-purple-100 text-purple-800' },
+            { id: 'other', name: '기타', icon: '💦', color: 'bg-gray-100 text-gray-800' }
+        ];
+
+        function App() {
+            // 상태 관리
             const [expenses, setExpenses] = useState([]);
             const [loading, setLoading] = useState(true);
             const [connected, setConnected] = useState(false);
-            const [members] = useState(['승현', '종은', '병권', '신욱', '예원', '가을', '재원']);
             const [showAddForm, setShowAddForm] = useState(false);
-            const [showCustomSplit, setShowCustomSplit] = useState(false);
-            const [showCompletedItems, setShowCompletedItems] = useState(false);
-            const [confirmDialog, setConfirmDialog] = useState(null);
-            const [expandedExpenses, setExpandedExpenses] = useState({});
             const [editingExpense, setEditingExpense] = useState(null);
+            const [expandedExpenses, setExpandedExpenses] = useState({});
             const [showExpenseMenu, setShowExpenseMenu] = useState({});
+            
+            // 🎖️ 이스터에그 상태
+            const [clickCount, setClickCount] = useState(0);
+            const [showEasterEgg, setShowEasterEgg] = useState(false);
+            const [easterEggMessage, setEasterEggMessage] = useState('');
 
-            const getCurrentDateTime = () => {
-                const now = new Date();
-                const year = now.getFullYear();
-                const month = String(now.getMonth() + 1).padStart(2, '0');
-                const day = String(now.getDate()).padStart(2, '0');
-                const hours = String(now.getHours()).padStart(2, '0');
-                const minutes = String(now.getMinutes()).padStart(2, '0');
-                return {
-                    date: `${year}-${month}-${day}`,
-                    time: `${hours}:${minutes}`
-                };
-            };
-
-            const currentDateTime = getCurrentDateTime();
-
-            const [newExpense, setNewExpense] = useState({
+            // 폼 상태
+            const [formData, setFormData] = useState({
                 title: '',
-                category: 'food',
                 amount: '',
-                payer: '승현',
-                splitType: 'equal',
+                payer: members[0],
                 participants: [...members],
+                category: 'food',
+                splitType: 'equal',
                 customSplit: {},
-                date: currentDateTime.date,
-                time: currentDateTime.time
+                date: new Date().toISOString().split('T')[0],
+                time: new Date().toTimeString().slice(0, 5)
             });
-
-            const categories = {
-                transport: { name: '교통비', icon: Car, color: 'bg-blue-100 text-blue-800', chartColor: '#3B82F6' },
-                accommodation: { name: '숙박비', icon: Home, color: 'bg-green-100 text-green-800', chartColor: '#10B981' },
-                food: { name: '식비', icon: Coffee, color: 'bg-orange-100 text-orange-800', chartColor: '#F59E0B' },
-                activity: { name: '활동비', icon: Receipt, color: 'bg-purple-100 text-purple-800', chartColor: '#8B5CF6' },
-                other: { name: '기타', icon: MoreHorizontal, color: 'bg-gray-100 text-gray-800', chartColor: '#6B7280' }
-            };
 
             // 🔥 Firebase 연결 및 실시간 데이터 동기화
             useEffect(() => {
@@ -159,7 +145,6 @@
                     if (data) {
                         const expensesList = Object.keys(data).map(key => {
                             const expense = data[key];
-                            // 데이터 안전성 보장
                             return {
                                 ...expense,
                                 id: key,
@@ -181,7 +166,6 @@
                     setLoading(false);
                 });
 
-                // 컴포넌트 언마운트 시 리스너 해제
                 return () => {
                     expensesRef.off();
                     connectedRef.off();
@@ -197,108 +181,61 @@
                 return () => document.removeEventListener('click', handleClickOutside);
             }, []);
 
-            // Firebase에 경비 추가
-            const addExpenseToFirebase = (expense) => {
-                const expensesRef = database.ref('expenses');
-                const newExpenseRef = expensesRef.push();
-                newExpenseRef.set({
-                    ...expense,
-                    createdAt: firebase.database.ServerValue.TIMESTAMP
-                });
-            };
-
-            // Firebase에서 경비 업데이트
-            const updateExpenseInFirebase = (expenseId, updates) => {
-                database.ref(`expenses/${expenseId}`).update(updates);
-            };
-
-            // Firebase에서 경비 삭제
-            const deleteExpenseFromFirebase = (expenseId) => {
-                database.ref(`expenses/${expenseId}`).remove();
-            };
-
-            const toggleParticipant = (member) => {
-                const newParticipants = newExpense.participants.includes(member)
-                    ? newExpense.participants.filter(p => p !== member)
-                    : [...newExpense.participants, member];
+            // 🎖️ 이스터에그 로직
+            const handleTitleClick = () => {
+                const newCount = clickCount + 1;
+                setClickCount(newCount);
                 
-                setNewExpense({
-                    ...newExpense,
-                    participants: newParticipants,
-                    customSplit: {}
-                });
-            };
-
-            const updateCustomSplit = (member, amount) => {
-                const newCustomSplit = { ...newExpense.customSplit };
-                
-                if (amount === '' || amount === 0) {
-                    delete newCustomSplit[member];
-                } else {
-                    newCustomSplit[member] = parseInt(amount);
+                if (newCount === 3) {
+                    setShowEasterEgg(true);
+                    setEasterEggMessage('🎖️ 승우 입대대기방 🎖️');
+                } else if (newCount === 5) {
+                    setEasterEggMessage('📅 D-day: 9월 입대 예정! 💪');
+                } else if (newCount === 7) {
+                    setEasterEggMessage('🫡 마지막 자유여행을 즐겨라! 🏊‍♀️');
+                    setTimeout(() => {
+                        setShowEasterEgg(false);
+                        setClickCount(0);
+                    }, 3000);
                 }
-
-                setNewExpense({
-                    ...newExpense,
-                    customSplit: newCustomSplit
-                });
             };
 
-            const toggleExpenseDetails = (expenseId) => {
-                setExpandedExpenses(prev => ({
-                    ...prev,
-                    [expenseId]: !prev[expenseId]
-                }));
+            // Firebase 업데이트 함수들
+            const updateExpenseInFirebase = (expenseId, updates) => {
+                try {
+                    database.ref(`expenses/${expenseId}`).update(updates);
+                } catch (error) {
+                    console.error('Firebase 업데이트 에러:', error);
+                    alert('업데이트 중 오류가 발생했습니다.');
+                }
             };
 
-            const toggleExpenseMenu = (expenseId) => {
-                setShowExpenseMenu(prev => ({
-                    ...prev,
-                    [expenseId]: !prev[expenseId]
-                }));
+            const deleteExpenseFromFirebase = (expenseId) => {
+                try {
+                    database.ref(`expenses/${expenseId}`).remove();
+                } catch (error) {
+                    console.error('Firebase 삭제 에러:', error);
+                    alert('삭제 중 오류가 발생했습니다.');
+                }
             };
 
-            const startEditExpense = (expense) => {
-                setEditingExpense(expense.id);
-                setNewExpense({
-                    title: expense.title,
-                    category: expense.category,
-                    amount: expense.amount.toString(),
-                    payer: expense.payer,
-                    splitType: expense.splitType || 'equal',
-                    participants: expense.participants || [...members],
-                    customSplit: expense.customSplit || {},
-                    date: expense.date,
-                    time: expense.time
-                });
-                setShowAddForm(true);
-                setShowExpenseMenu({});
+            const addExpenseToFirebase = (expenseData) => {
+                try {
+                    const newExpenseRef = database.ref('expenses').push();
+                    newExpenseRef.set({
+                        ...expenseData,
+                        createdAt: Date.now(),
+                        completedBy: {}
+                    });
+                    return newExpenseRef.key;
+                } catch (error) {
+                    console.error('Firebase 추가 에러:', error);
+                    alert('추가 중 오류가 발생했습니다.');
+                    return null;
+                }
             };
 
-            const deleteExpense = (expenseId, title) => {
-                showConfirmDialog(
-                    '경비 삭제',
-                    `"${title}" 항목을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`,
-                    () => {
-                        deleteExpenseFromFirebase(expenseId);
-                        setShowExpenseMenu({});
-                        hideConfirmDialog();
-                    }
-                );
-            };
-
-            const showConfirmDialog = (title, message, onConfirm) => {
-                setConfirmDialog({
-                    title,
-                    message,
-                    onConfirm
-                });
-            };
-
-            const hideConfirmDialog = () => {
-                setConfirmDialog(null);
-            };
-
+            // 정산 관련 함수들
             const togglePersonalCompletion = (expenseId, member) => {
                 try {
                     console.log('개인 정산 시작:', { expenseId, member });
@@ -322,7 +259,6 @@
                     const userConfirm = window.confirm(`${member}님의 ${memberAmount.toLocaleString()}원 정산을 완료하시겠습니까?`);
                     
                     if (userConfirm) {
-                        // 매우 안전한 객체 처리
                         const currentCompletedBy = expense.completedBy && typeof expense.completedBy === 'object' ? {...expense.completedBy} : {};
                         const currentStatus = currentCompletedBy[member] === true;
                         
@@ -346,25 +282,57 @@
             };
 
             const toggleExpenseCompletion = (expenseId) => {
-                const expense = expenses.find(e => e.id === expenseId);
+                const expense = expenses.find(e => e && e.id === expenseId);
+                if (!expense) {
+                    alert('경비 정보를 찾을 수 없습니다.');
+                    return;
+                }
+                
                 const isCompleted = isExpenseCompleted(expense);
                 
-                showConfirmDialog(
-                    isCompleted ? '전체 정산 해제' : '전체 정산 완료',
-                    isCompleted 
-                        ? `"${expense.title}" 항목의 전체 정산을 해제하시겠습니까?`
-                        : `"${expense.title}" 항목의 전체 정산을 완료하시겠습니까?`,
-                    () => {
+                const message = isCompleted 
+                    ? `"${expense.title}" 항목의 전체 정산을 해제하시겠습니까?`
+                    : `"${expense.title}" 항목의 전체 정산을 완료하시겠습니까?`;
+                
+                const userConfirm = window.confirm(message);
+                
+                if (userConfirm) {
+                    try {
                         let newCompletedBy = {};
-                        if (!isCompleted) {
+                        if (!isCompleted && expense.participants) {
                             expense.participants.forEach(participant => {
                                 newCompletedBy[participant] = true;
                             });
                         }
+                        
+                        console.log('전체 정산 상태 업데이트:', { 
+                            expenseId, 
+                            isCompleted, 
+                            newCompletedBy 
+                        });
+                        
                         updateExpenseInFirebase(expenseId, { completedBy: newCompletedBy });
-                        hideConfirmDialog();
+                        
+                    } catch (error) {
+                        console.error('전체 정산 처리 에러:', error);
+                        alert('정산 처리 중 오류가 발생했습니다: ' + error.message);
                     }
-                );
+                }
+            };
+
+            const deleteExpense = (expenseId, title) => {
+                const userConfirm = window.confirm(`"${title}" 항목을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`);
+                
+                if (userConfirm) {
+                    try {
+                        console.log('경비 삭제:', { expenseId, title });
+                        deleteExpenseFromFirebase(expenseId);
+                        setShowExpenseMenu({});
+                    } catch (error) {
+                        console.error('삭제 처리 에러:', error);
+                        alert('삭제 처리 중 오류가 발생했습니다: ' + error.message);
+                    }
+                }
             };
 
             const isExpenseCompleted = (expense) => {
@@ -429,45 +397,10 @@
                 }
             };
 
-            const addExpense = () => {
-                if (newExpense.title && newExpense.amount && newExpense.participants.length > 0) {
-                    const expenseData = {
-                        ...newExpense,
-                        amount: parseInt(newExpense.amount),
-                        completedBy: editingExpense ? expenses.find(e => e.id === editingExpense)?.completedBy || {} : {}
-                    };
-                    
-                    if (editingExpense) {
-                        // 기존 경비 수정
-                        updateExpenseInFirebase(editingExpense, expenseData);
-                        setEditingExpense(null);
-                    } else {
-                        // 새 경비 추가
-                        addExpenseToFirebase(expenseData);
-                    }
-                    
-                    const newDateTime = getCurrentDateTime();
-                    setNewExpense({
-                        title: '',
-                        category: 'food',
-                        amount: '',
-                        payer: '승현',
-                        splitType: 'equal',
-                        participants: [...members],
-                        customSplit: {},
-                        date: newDateTime.date,
-                        time: newDateTime.time
-                    });
-                    setShowAddForm(false);
-                    setShowCustomSplit(false);
-                }
-            };
-
             const calculatePersonalExpenses = () => {
                 try {
                     const personalTotals = {};
                     
-                    // 안전한 멤버 초기화
                     if (!Array.isArray(members)) {
                         console.error('members가 배열이 아님');
                         return {};
@@ -494,14 +427,12 @@
                                 return;
                             }
                             
-                            // 지불한 금액 추가
                             const payer = expense.payer;
                             if (payer && typeof payer === 'string' && personalTotals[payer]) {
                                 const amount = typeof expense.amount === 'number' ? expense.amount : 0;
                                 personalTotals[payer].paid += amount;
                             }
                             
-                            // 부담할 금액 계산
                             const participants = expense.participants;
                             const completedBy = expense.completedBy && typeof expense.completedBy === 'object' ? expense.completedBy : {};
                             
@@ -528,7 +459,6 @@
                         }
                     });
 
-                    // 순 금액 계산
                     Object.keys(personalTotals).forEach(member => {
                         try {
                             if (personalTotals[member] && typeof personalTotals[member] === 'object') {
@@ -544,7 +474,6 @@
                     return personalTotals;
                 } catch (error) {
                     console.error('calculatePersonalExpenses 전체 에러:', error);
-                    // 빈 객체라도 반환해서 앱이 크래시되지 않도록
                     const safeTotals = {};
                     members.forEach(member => {
                         if (member && typeof member === 'string') {
@@ -555,1063 +484,600 @@
                 }
             };
 
-            const calculateCategoryData = () => {
-                const categoryTotals = {};
-                
-                expenses.forEach(expense => {
-                    if (!categoryTotals[expense.category]) {
-                        categoryTotals[expense.category] = 0;
-                    }
-                    categoryTotals[expense.category] += expense.amount;
-                });
+            // 총 경비 계산
+            const totalExpenses = expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+            const pendingExpenses = expenses.filter(expense => !isExpenseCompleted(expense))
+                .reduce((sum, expense) => sum + (expense.amount || 0), 0);
 
-                const totalAmount = Object.values(categoryTotals).reduce((sum, amount) => sum + amount, 0);
-                
-                return Object.entries(categoryTotals).map(([category, amount]) => ({
-                    name: categories[category].name,
-                    value: amount,
-                    percentage: totalAmount > 0 ? ((amount / totalAmount) * 100).toFixed(1) : 0,
-                    fill: categories[category].chartColor
-                }));
-            };
+            const personalTotals = calculatePersonalExpenses();
 
-            const personalExpenses = calculatePersonalExpenses();
-            const categoryData = calculateCategoryData();
-            const activeExpenses = expenses.filter(expense => !isExpenseCompleted(expense));
-            const completedExpenses = expenses.filter(expense => isExpenseCompleted(expense));
-            const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-            const pendingExpenses = activeExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-
-            const getPreviewAmount = (member) => {
-                if (!newExpense.amount) return 0;
+            // 폼 핸들러들
+            const handleSubmit = (e) => {
+                e.preventDefault();
                 
-                const totalAmount = parseInt(newExpense.amount);
-                const customTotal = Object.values(newExpense.customSplit).reduce((sum, val) => sum + val, 0);
-                const remainingAmount = totalAmount - customTotal;
-                const remainingParticipants = newExpense.participants.filter(p => !newExpense.customSplit[p]);
-                
-                if (newExpense.customSplit[member]) {
-                    return newExpense.customSplit[member];
+                if (!formData.title.trim() || !formData.amount) {
+                    alert('제목과 금액을 입력해주세요.');
+                    return;
                 }
-                
-                return remainingParticipants.length > 0 ? Math.round(remainingAmount / remainingParticipants.length) : 0;
-            };
 
-            const groupExpensesByDate = (expenseList) => {
-                const grouped = {};
-                expenseList.forEach(expense => {
-                    const dateKey = expense.date;
-                    if (!grouped[dateKey]) {
-                        grouped[dateKey] = [];
-                    }
-                    grouped[dateKey].push(expense);
+                const expenseData = {
+                    ...formData,
+                    amount: parseInt(formData.amount),
+                    participants: [...formData.participants]
+                };
+
+                if (editingExpense) {
+                    updateExpenseInFirebase(editingExpense.id, expenseData);
+                } else {
+                    addExpenseToFirebase(expenseData);
+                }
+
+                setShowAddForm(false);
+                setEditingExpense(null);
+                setFormData({
+                    title: '',
+                    amount: '',
+                    payer: members[0],
+                    participants: [...members],
+                    category: 'food',
+                    splitType: 'equal',
+                    customSplit: {},
+                    date: new Date().toISOString().split('T')[0],
+                    time: new Date().toTimeString().slice(0, 5)
                 });
-                
-                Object.keys(grouped).forEach(date => {
-                    grouped[date].sort((a, b) => a.time.localeCompare(b.time));
+            };
+
+            const startEdit = (expense) => {
+                setEditingExpense(expense);
+                setFormData({
+                    title: expense.title,
+                    amount: expense.amount.toString(),
+                    payer: expense.payer,
+                    participants: [...expense.participants],
+                    category: expense.category,
+                    splitType: expense.splitType || 'equal',
+                    customSplit: expense.customSplit || {},
+                    date: expense.date,
+                    time: expense.time
                 });
-                
-                return grouped;
-            };
-
-            const formatDate = (dateString) => {
-                const date = new Date(dateString);
-                const days = ['일', '월', '화', '수', '목', '금', '토'];
-                const month = date.getMonth() + 1;
-                const day = date.getDate();
-                const dayOfWeek = days[date.getDay()];
-                return `${month}월 ${day}일 (${dayOfWeek})`;
-            };
-
-            const groupedActiveExpenses = groupExpensesByDate(activeExpenses);
-            const groupedCompletedExpenses = groupExpensesByDate(completedExpenses);
-
-            // Simple pie chart component
-            const SimplePieChart = ({ data }) => {
-                if (data.length === 0) return null;
-                
-                let cumulativePercentage = 0;
-                
-                return (
-                    <svg width="160" height="160" viewBox="0 0 42 42" className="mx-auto">
-                        <circle cx="21" cy="21" r="15.91549430918954" fill="transparent" stroke="#e5e7eb" strokeWidth="3"/>
-                        {data.map((item, index) => {
-                            const strokeDasharray = `${parseFloat(item.percentage)} ${100 - parseFloat(item.percentage)}`;
-                            const strokeDashoffset = -cumulativePercentage;
-                            cumulativePercentage += parseFloat(item.percentage);
-                            
-                            return (
-                                <circle
-                                    key={index}
-                                    cx="21"
-                                    cy="21"
-                                    r="15.91549430918954"
-                                    fill="transparent"
-                                    stroke={item.fill}
-                                    strokeWidth="3"
-                                    strokeDasharray={strokeDasharray}
-                                    strokeDashoffset={strokeDashoffset}
-                                    transform="rotate(-90 21 21)"
-                                />
-                            );
-                        })}
-                    </svg>
-                );
+                setShowAddForm(true);
+                setShowExpenseMenu({});
             };
 
             if (loading) {
                 return React.createElement('div', { 
-                    className: "min-h-screen bg-gray-50 flex items-center justify-center" 
-                },
-                    React.createElement('div', { 
-                        className: "text-center" 
-                    }, [
+                    className: "min-h-screen water-theme flex items-center justify-center" 
+                }, 
+                    React.createElement('div', { className: "text-center text-white" }, [
                         React.createElement('div', { 
                             key: 'spinner',
-                            className: "animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" 
+                            className: "inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4" 
                         }),
-                        React.createElement('p', { 
-                            key: 'text',
-                            className: "text-gray-600" 
-                        }, "데이터를 불러오는 중...")
+                        React.createElement('p', { key: 'text' }, "🏊‍♀️ 케리비안베이 데이터 로딩중...")
                     ])
                 );
             }
 
             return React.createElement('div', { className: "min-h-screen bg-gray-50" }, [
-                // 헤더
+                // 🏊‍♀️ 워터파크 테마 헤더
                 React.createElement('div', { 
                     key: 'header',
-                    className: "bg-white shadow-sm sticky top-0 z-10" 
+                    className: "water-theme shadow-lg sticky top-0 z-10" 
                 }, 
                     React.createElement('div', { className: "px-4 py-4" }, [
                         React.createElement('div', { 
                             key: 'title',
                             className: "text-center" 
                         }, [
-                            React.createElement('h1', { 
-                                key: 'h1',
-                                className: "text-xl font-bold text-gray-900" 
-                            }, "🏝️ 완도 여행 경비"),
-                            React.createElement('p', { 
-                                key: 'subtitle',
-                                className: "text-sm text-gray-600" 
-                            }, "7/11(금) ~ 7/13(일)"),
+                            React.createElement('div', {
+                                key: 'title-section',
+                                className: "easter-egg",
+                                onClick: handleTitleClick
+                            }, [
+                                React.createElement('h1', { 
+                                    key: 'h1',
+                                    className: "text-xl font-bold text-white drop-shadow-lg" 
+                                }, "🏊‍♀️ 진짜배기 여행"),
+                                React.createElement('p', { 
+                                    key: 'subtitle',
+                                    className: "text-sm text-white/90 font-medium" 
+                                }, "7/24(목) ~ 7/25(금) • 펜션 → 바베큐 → 케리비안베이")
+                            ]),
                             // 연결 상태 표시
                             React.createElement('div', { 
                                 key: 'status',
-                                className: `flex items-center justify-center gap-1 mt-1 text-xs ${connected ? 'text-green-600' : 'text-red-600'}` 
+                                className: `flex items-center justify-center gap-1 mt-1 text-xs ${connected ? 'text-white/90' : 'text-red-200'}` 
                             }, [
-                                React.createElement(Wifi, { key: 'icon' }),
-                                React.createElement('span', { key: 'text' }, connected ? '실시간 연결됨' : '연결 끊김')
+                                React.createElement(Waves, { key: 'icon' }),
+                                React.createElement('span', { key: 'text' }, connected ? '🌊 실시간 연결됨' : '⚠️ 연결 끊김')
                             ])
                         ]),
                         React.createElement('div', { 
                             key: 'totals',
-                            className: "mt-3 grid grid-cols-2 gap-4" 
+                            className: "mt-4 grid grid-cols-2 gap-4" 
                         }, [
                             React.createElement('div', { 
                                 key: 'total',
-                                className: "text-center" 
+                                className: "text-center water-card rounded-lg p-3" 
                             }, [
                                 React.createElement('p', { 
                                     key: 'amount1',
-                                    className: "text-xl font-bold text-gray-900" 
+                                    className: "text-xl font-bold text-blue-900 drop-shadow" 
                                 }, `${totalExpenses.toLocaleString()}원`),
                                 React.createElement('p', { 
                                     key: 'label1',
-                                    className: "text-xs text-gray-500" 
+                                    className: "text-xs text-blue-700" 
                                 }, "총 경비")
                             ]),
                             React.createElement('div', { 
                                 key: 'pending',
-                                className: "text-center" 
+                                className: "text-center water-card rounded-lg p-3" 
                             }, [
                                 React.createElement('p', { 
                                     key: 'amount2',
-                                    className: "text-xl font-bold text-blue-600" 
+                                    className: "text-xl font-bold text-blue-900 drop-shadow" 
                                 }, `${pendingExpenses.toLocaleString()}원`),
                                 React.createElement('p', { 
                                     key: 'label2',
-                                    className: "text-xs text-gray-500" 
+                                    className: "text-xs text-blue-700" 
                                 }, "미정산 경비")
                             ])
                         ])
                     ])
                 ),
-                
-                // 메인 콘텐츠
-                React.createElement('div', { 
-                    key: 'main',
-                    className: "px-4 py-4 space-y-4" 
+
+                // 🎖️ 이스터에그 표시
+                showEasterEgg && React.createElement('div', {
+                    key: 'easter-egg',
+                    className: "fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-3 rounded-full shadow-lg animate-bounce"
                 }, [
-                    // 추가 버튼
-                    React.createElement('button', {
-                        key: 'addBtn',
-                        onClick: () => setShowAddForm(true),
-                        className: "w-full bg-blue-600 text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2 active:bg-blue-700"
-                    }, [
-                        React.createElement(PlusCircle, { key: 'icon' }),
-                        "새 경비 추가"
-                    ]),
-                    
-                    // 경비 내역
-                    React.createElement('div', { 
-                        key: 'expenses',
-                        className: "bg-white rounded-lg shadow-sm" 
-                    }, [
-                        React.createElement('div', { 
-                            key: 'header',
-                            className: "p-4 border-b border-gray-200" 
-                        },
-                            React.createElement('div', {
-                                className: "flex justify-between items-center"
-                            }, [
-                                React.createElement('h2', { 
-                                    key: 'title',
-                                    className: "font-semibold text-gray-900" 
-                                }, "경비 내역"),
-                                completedExpenses.length > 0 && React.createElement('button', {
-                                    key: 'toggle',
-                                    onClick: () => setShowCompletedItems(!showCompletedItems),
-                                    className: "text-sm text-gray-500 hover:text-gray-700"
-                                }, `정산완료 ${completedExpenses.length}건 ${showCompletedItems ? '숨기기' : '보기'}`)
-                            ])
-                        ),
-                        
-                        Object.keys(groupedActiveExpenses).length === 0 
-                            ? React.createElement('div', { 
-                                key: 'empty',
-                                className: "p-8 text-center text-gray-500" 
-                            }, "아직 등록된 경비가 없습니다.")
-                            : Object.entries(groupedActiveExpenses)
-                                .sort(([a], [b]) => b.localeCompare(a))
-                                .map(([date, dateExpenses]) => 
-                                    React.createElement('div', { key: date }, [
-                                        React.createElement('div', { 
-                                            key: 'dateHeader',
-                                            className: "px-4 py-2 bg-gray-50 border-b border-gray-200" 
-                                        },
-                                            React.createElement('h3', { 
-                                                className: "text-sm font-medium text-gray-700" 
-                                            }, formatDate(date))
-                                        ),
-                                        React.createElement('div', { 
-                                            key: 'expenseList',
-                                            className: "divide-y divide-gray-100" 
-                                        },
-                                            dateExpenses.map(expense => {
-                                                const categoryInfo = categories[expense.category];
-                                                const Icon = categoryInfo.icon;
-                                                                                                                const completedCount = (() => {
-                                                                    try {
-                                                                        if (!expense || !Array.isArray(expense.participants)) {
-                                                                            return 0;
-                                                                        }
-                                                                        const completedBy = expense.completedBy && typeof expense.completedBy === 'object' ? expense.completedBy : {};
-                                                                        return expense.participants.filter(p => {
-                                                                            return p && typeof p === 'string' && completedBy[p] === true;
-                                                                        }).length;
-                                                                    } catch (error) {
-                                                                        console.error('completedCount 계산 에러:', error);
-                                                                        return 0;
-                                                                    }
-                                                                })();
-                                                
-                                                return React.createElement('div', { 
-                                                    key: expense.id,
-                                                    className: "p-4" 
-                                                },
-                                                    React.createElement('div', { 
-                                                        className: "flex items-start gap-3" 
-                                                    }, [
-                                                        React.createElement('div', { 
-                                                            key: 'icon',
-                                                            className: `p-2 rounded-lg ${categoryInfo.color} flex-shrink-0` 
-                                                        },
-                                                            React.createElement(Icon)
-                                                        ),
-                                                        React.createElement('div', { 
-                                                            key: 'content',
-                                                            className: "flex-1 min-w-0" 
-                                                        }, [
-                                                            React.createElement('div', { 
-                                                                key: 'info',
-                                                                className: "flex items-start justify-between mb-2" 
-                                                            }, [
-                                                                React.createElement('div', { 
-                                                                    key: 'left',
-                                                                    className: "flex-1" 
-                                                                }, [
-                                                                    React.createElement('h3', { 
-                                                                        key: 'title',
-                                                                        className: "font-medium text-gray-900 text-sm" 
-                                                                    }, expense.title),
-                                                                    React.createElement('div', { 
-                                                                        key: 'details',
-                                                                        className: "text-xs text-gray-500 mt-1" 
-                                                                    },
-                                                                        React.createElement('div', {}, `${expense.time} • ${categoryInfo.name} • ${expense.payer} 결제`)
-                                                                    ),
-                                                                    React.createElement('div', { 
-                                                                        key: 'summary',
-                                                                        className: "flex items-center justify-between mt-2" 
-                                                                    }, [
-                                                                        React.createElement('div', { 
-                                                                            key: 'status',
-                                                                            className: "text-xs text-gray-500" 
-                                                                        }, `정산완료: ${completedCount}/${expense.participants ? expense.participants.length : 0}명`),
-                                                                        React.createElement('button', {
-                                                                            key: 'toggle',
-                                                                            onClick: () => toggleExpenseDetails(expense.id),
-                                                                            className: "flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
-                                                                        }, [
-                                                                            "개별 정산",
-                                                                            expandedExpenses[expense.id] 
-                                                                                ? React.createElement(ChevronUp, { key: 'up' })
-                                                                                : React.createElement(ChevronDown, { key: 'down' })
-                                                                        ])
-                                                                    ])
-                                                                ]),
-                                                                React.createElement('div', { 
-                                                                    key: 'right',
-                                                                    className: "text-right flex-shrink-0 ml-2 relative" 
-                                                                }, [
-                                                                    React.createElement('p', { 
-                                                                        key: 'amount',
-                                                                        className: "font-bold text-gray-900 text-sm" 
-                                                                    }, `${expense.amount.toLocaleString()}원`),
-                                                                    React.createElement('div', {
-                                                                        key: 'buttons',
-                                                                        className: "flex items-center gap-1 mt-1"
-                                                                    }, [
-                                                                        React.createElement('button', {
-                                                                            key: 'complete',
-                                                                            onClick: () => toggleExpenseCompletion(expense.id),
-                                                                            className: "text-xs text-green-600 hover:text-green-700 flex items-center gap-1"
-                                                                        }, [
-                                                                            React.createElement(CheckCircle, { key: 'icon' }),
-                                                                            "전체완료"
-                                                                        ]),
-                                                                        React.createElement('button', {
-                                                                            key: 'menu',
-                                                                            onClick: (e) => {
-                                                                                e.stopPropagation();
-                                                                                toggleExpenseMenu(expense.id);
-                                                                            },
-                                                                            className: "text-xs text-gray-500 hover:text-gray-700 p-1 rounded hover:bg-gray-100"
-                                                                        }, React.createElement(MoreVertical))
-                                                                    ]),
-                                                                    
-                                                                    // 드롭다운 메뉴
-                                                                    showExpenseMenu[expense.id] && React.createElement('div', {
-                                                                        key: 'dropdown',
-                                                                        className: "absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 w-32",
-                                                                        onClick: (e) => e.stopPropagation()
-                                                                    }, [
-                                                                        React.createElement('button', {
-                                                                            key: 'edit',
-                                                                            onClick: () => startEditExpense(expense),
-                                                                            className: "w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 rounded-t-lg"
-                                                                        }, [
-                                                                            React.createElement(Edit, { key: 'icon' }),
-                                                                            "수정"
-                                                                        ]),
-                                                                        React.createElement('button', {
-                                                                            key: 'delete',
-                                                                            onClick: () => deleteExpense(expense.id, expense.title),
-                                                                            className: "w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 rounded-b-lg"
-                                                                        }, [
-                                                                            React.createElement(Trash, { key: 'icon' }),
-                                                                            "삭제"
-                                                                        ])
-                                                                    ])
-                                                                ])
-                                                            ]),
-                                                            
-                                                            expandedExpenses[expense.id] && expense.participants && Array.isArray(expense.participants) && React.createElement('div', { 
-                                                                key: 'details',
-                                                                className: "grid grid-cols-2 gap-1 text-xs mt-2 pt-2 border-t border-gray-100" 
-                                                            },
-                                                                expense.participants.map(participant => {
-                                                                    try {
-                                                                        if (!participant || typeof participant !== 'string') {
-                                                                            return null;
-                                                                        }
-                                                                        
-                                                                        const amount = getParticipantAmount(expense, participant);
-                                                                        const completedBy = expense.completedBy && typeof expense.completedBy === 'object' ? expense.completedBy : {};
-                                                                        const isCompleted = completedBy[participant] === true;
-                                                                        
-                                                                        return React.createElement('div', { 
-                                                                            key: participant,
-                                                                            className: `flex items-center justify-between p-2 rounded border ${
-                                                                                isCompleted ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
-                                                                            }` 
-                                                                        }, [
-                                                                            React.createElement('span', { 
-                                                                                key: 'name',
-                                                                                className: isCompleted ? 'text-green-700 line-through' : 'text-gray-700' 
-                                                                            }, participant),
-                                                                            React.createElement('div', { 
-                                                                                key: 'amount',
-                                                                                className: "flex items-center gap-1" 
-                                                                            }, [
-                                                                                React.createElement('span', { 
-                                                                                    key: 'value',
-                                                                                    className: isCompleted ? 'text-green-700 line-through' : 'text-gray-700' 
-                                                                                }, `${amount.toLocaleString()}원`),
-                                                                                React.createElement('button', {
-                                                                                    key: 'check',
-                                                                                    onClick: () => togglePersonalCompletion(expense.id, participant),
-                                                                                    className: `p-1 rounded ${
-                                                                                        isCompleted 
-                                                                                            ? 'text-green-600 hover:text-green-700' 
-                                                                                            : 'text-gray-400 hover:text-green-600'
-                                                                                    }`
-                                                                                }, React.createElement(Check))
-                                                                            ])
-                                                                        ]);
-                                                                    } catch (error) {
-                                                                        console.error('participant 렌더링 에러:', error, { participant, expense });
-                                                                        return null;
-                                                                    }
-                                                                }).filter(Boolean) // null 제거
-                                                            )
-                                                        ])
-                                                    ])
-                                                );
-                                            })
-                                        )
-                                    ])
-                                ),
-                        
-                        // 정산완료 경비
-                        showCompletedItems && Object.keys(groupedCompletedExpenses).length > 0 && React.createElement('div', {
-                            key: 'completed',
-                            className: "border-t-4 border-green-100"
-                        }, [
-                            React.createElement('div', {
-                                key: 'header',
-                                className: "px-4 py-2 bg-green-50"
-                            },
-                                React.createElement('h3', {
-                                    className: "text-sm font-medium text-green-700"
-                                }, "✅ 정산 완료")
-                            ),
-                            Object.entries(groupedCompletedExpenses)
-                                .sort(([a], [b]) => b.localeCompare(a))
-                                .map(([date, dateExpenses]) =>
-                                    React.createElement('div', { key: date }, [
-                                        React.createElement('div', {
-                                            key: 'dateHeader',
-                                            className: "px-4 py-2 bg-gray-50 border-b border-gray-200"
-                                        },
-                                            React.createElement('h3', {
-                                                className: "text-sm font-medium text-gray-500"
-                                            }, formatDate(date))
-                                        ),
-                                        React.createElement('div', {
-                                            key: 'expenseList',
-                                            className: "divide-y divide-gray-100"
-                                        },
-                                            dateExpenses.map(expense => {
-                                                const categoryInfo = categories[expense.category];
-                                                const Icon = categoryInfo.icon;
-                                                
-                                                return React.createElement('div', {
-                                                    key: expense.id,
-                                                    className: "p-4 opacity-60"
-                                                },
-                                                    React.createElement('div', {
-                                                        className: "flex items-start gap-3"
-                                                    }, [
-                                                        React.createElement('div', {
-                                                            key: 'icon',
-                                                            className: `p-2 rounded-lg ${categoryInfo.color} flex-shrink-0`
-                                                        },
-                                                            React.createElement(Icon)
-                                                        ),
-                                                        React.createElement('div', {
-                                                            key: 'content',
-                                                            className: "flex-1 min-w-0"
-                                                        },
-                                                            React.createElement('div', {
-                                                                className: "flex items-start justify-between"
-                                                            }, [
-                                                                React.createElement('div', {
-                                                                    key: 'left'
-                                                                }, [
-                                                                    React.createElement('h3', {
-                                                                        key: 'title',
-                                                                        className: "font-medium text-gray-900 text-sm line-through"
-                                                                    }, expense.title),
-                                                                    React.createElement('div', {
-                                                                        key: 'details',
-                                                                        className: "text-xs text-gray-500 mt-1"
-                                                                    },
-                                                                        React.createElement('div', {}, `${expense.time} • ${categoryInfo.name} • ${expense.payer} 결제`)
-                                                                    )
-                                                                ]),
-                                                                React.createElement('div', {
-                                                                    key: 'right',
-                                                                    className: "text-right flex-shrink-0 ml-2"
-                                                                }, [
-                                                                    React.createElement('p', {
-                                                                        key: 'amount',
-                                                                        className: "font-bold text-gray-500 text-sm line-through"
-                                                                    }, `${expense.amount.toLocaleString()}원`),
-                                                                    React.createElement('button', {
-                                                                        key: 'restore',
-                                                                        onClick: () => toggleExpenseCompletion(expense.id),
-                                                                        className: "mt-1 text-xs text-gray-500 hover:text-gray-700"
-                                                                    }, "되돌리기")
-                                                                ])
-                                                            ])
-                                                        )
-                                                    ])
-                                                );
-                                            })
-                                        )
-                                    ])
-                                )
-                        ])
-                    ]),
-                    
-                    // 개인별 정산
-                    React.createElement('div', { 
-                        key: 'personal',
-                        className: "bg-white rounded-lg shadow-sm p-4" 
-                    }, [
-                        React.createElement('div', { 
-                            key: 'header',
-                            className: "flex items-center gap-2 mb-3" 
-                        }, [
-                            React.createElement(Calculator, { key: 'icon' }),
-                            React.createElement('h3', { 
-                                key: 'title',
-                                className: "font-semibold text-gray-900" 
-                            }, "개인별 정산"),
-                            React.createElement('span', { 
-                                key: 'note',
-                                className: "text-xs text-gray-500" 
-                            }, "(미정산 기준)")
-                        ]),
-                        React.createElement('div', { 
-                            key: 'list',
-                            className: "grid grid-cols-1 gap-2 mb-4" 
-                        },
-                            Object.entries(personalExpenses).map(([member, amounts]) =>
-                                React.createElement('div', { 
-                                    key: member,
-                                    className: "flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0" 
-                                }, [
-                                    React.createElement('span', { 
-                                        key: 'name',
-                                        className: "font-medium text-gray-900" 
-                                    }, member),
-                                    React.createElement('div', { 
-                                        key: 'amounts',
-                                        className: "text-right" 
-                                    }, [
-                                        React.createElement('span', { 
-                                            key: 'net',
-                                            className: `font-bold text-sm ${amounts.net >= 0 ? 'text-green-600' : 'text-red-600'}` 
-                                        }, `${amounts.net >= 0 ? '+' : ''}${amounts.net.toLocaleString()}원`),
-                                        React.createElement('div', { 
-                                            key: 'detail',
-                                            className: "text-xs text-gray-500" 
-                                        }, `지불 ${amounts.paid.toLocaleString()} | 부담 ${amounts.owes.toLocaleString()}`)
-                                    ])
-                                ])
-                            )
-                        ),
-                        
-                        // 카테고리별 차트
-                        React.createElement('div', { 
-                            key: 'chart',
-                            className: "border-t border-gray-200 pt-4" 
-                        }, [
-                            React.createElement('h4', { 
-                                key: 'title',
-                                className: "text-sm font-medium text-gray-900 mb-3" 
-                            }, "카테고리별 지출 현황"),
-                            categoryData.length > 0 
-                                ? React.createElement('div', { key: 'content' }, [
-                                    React.createElement('div', { 
-                                        key: 'chart',
-                                        className: "h-48 mb-3 flex justify-center items-center" 
-                                    },
-                                        React.createElement(SimplePieChart, { data: categoryData })
-                                    ),
-                                    React.createElement('div', { 
-                                        key: 'legend',
-                                        className: "space-y-2" 
-                                    },
-                                        categoryData.map((category, index) =>
-                                            React.createElement('div', { 
-                                                key: index,
-                                                className: "flex items-center justify-between text-xs" 
-                                            }, [
-                                                React.createElement('div', { 
-                                                    key: 'left',
-                                                    className: "flex items-center gap-2" 
-                                                }, [
-                                                    React.createElement('div', { 
-                                                        key: 'color',
-                                                        className: "w-3 h-3 rounded",
-                                                        style: { backgroundColor: category.fill }
-                                                    }),
-                                                    React.createElement('span', { 
-                                                        key: 'name',
-                                                        className: "text-gray-700" 
-                                                    }, category.name)
-                                                ]),
-                                                React.createElement('div', { 
-                                                    key: 'right',
-                                                    className: "text-right" 
-                                                }, [
-                                                    React.createElement('span', { 
-                                                        key: 'percent',
-                                                        className: "font-medium" 
-                                                    }, `${category.percentage}%`),
-                                                    React.createElement('span', { 
-                                                        key: 'amount',
-                                                        className: "text-gray-500 ml-1" 
-                                                    }, `(${category.value.toLocaleString()}원)`)
-                                                ])
-                                            ])
-                                        )
-                                    )
-                                ])
-                                : React.createElement('div', { 
-                                    key: 'empty',
-                                    className: "text-center py-4 text-gray-500 text-sm" 
-                                }, "아직 등록된 경비가 없습니다.")
-                        ]),
-                        
-                        React.createElement('div', { 
-                            key: 'note',
-                            className: "mt-3 pt-3 border-t border-gray-200 text-xs text-gray-600" 
-                        }, [
-                            React.createElement('span', { 
-                                key: 'green',
-                                className: "text-green-600" 
-                            }, "+"),
-                            "는 받을 금액, ",
-                            React.createElement('span', { 
-                                key: 'red',
-                                className: "text-red-600" 
-                            }, "-"),
-                            "는 줄 금액"
-                        ])
-                    ])
+                    React.createElement('div', {
+                        key: 'message',
+                        className: "text-center font-bold"
+                    }, easterEggMessage)
                 ]),
-                
-                // 확인 다이얼로그
-                confirmDialog && React.createElement('div', { 
-                    key: 'confirm',
-                    className: "dialog-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4",
-                    style: { zIndex: 99999 },
-                    onTouchStart: (e) => e.stopPropagation(),
-                    onTouchEnd: (e) => e.stopPropagation(),
-                    onClick: (e) => e.stopPropagation()
+
+                // 새 경비 추가 버튼
+                React.createElement('div', { 
+                    key: 'add-button',
+                    className: "p-4" 
                 },
-                    React.createElement('div', { 
-                        className: "bg-white rounded-lg p-6 w-full max-w-sm mx-auto shadow-2xl",
-                        onClick: (e) => e.stopPropagation(),
-                        onTouchStart: (e) => e.stopPropagation(),
-                        onTouchEnd: (e) => e.stopPropagation()
+                    React.createElement('button', {
+                        onClick: () => setShowAddForm(true),
+                        className: "w-full water-button text-white rounded-lg py-3 px-4 font-medium flex items-center justify-center gap-2 shadow-lg"
                     }, [
-                        React.createElement('div', { 
-                            key: 'header',
-                            className: "flex items-center gap-3 mb-6" 
-                        }, [
-                            React.createElement(AlertCircle, { 
-                                key: 'icon',
-                                className: "text-amber-500 flex-shrink-0"
-                            }),
-                            React.createElement('h3', { 
-                                key: 'title',
-                                className: "text-lg font-semibold text-gray-900" 
-                            }, confirmDialog.title)
-                        ]),
-                        React.createElement('p', { 
-                            key: 'message',
-                            className: "text-gray-600 mb-8 leading-relaxed text-base" 
-                        }, confirmDialog.message),
-                        React.createElement('div', { 
-                            key: 'buttons',
-                            className: "flex gap-4" 
-                        }, [
-                            React.createElement('button', {
-                                key: 'cancel',
-                                className: "mobile-button dialog-button flex-1 px-4 py-4 border-2 border-gray-300 rounded-lg text-gray-700 font-semibold bg-white hover:bg-gray-50 active:bg-gray-100",
-                                style: { 
-                                    WebkitTapHighlightColor: 'transparent',
-                                    touchAction: 'manipulation'
-                                },
-                                onTouchStart: (e) => {
-                                    e.stopPropagation();
-                                    e.currentTarget.style.backgroundColor = '#f3f4f6';
-                                },
-                                onTouchEnd: (e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    e.currentTarget.style.backgroundColor = '';
-                                    setTimeout(() => hideConfirmDialog(), 10);
-                                },
-                                onTouchCancel: (e) => {
-                                    e.currentTarget.style.backgroundColor = '';
-                                },
-                                onClick: (e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    hideConfirmDialog();
-                                }
-                            }, "취소"),
-                            React.createElement('button', {
-                                key: 'confirm',
-                                className: "mobile-button dialog-button flex-1 px-4 py-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 active:bg-blue-800",
-                                style: { 
-                                    WebkitTapHighlightColor: 'transparent',
-                                    touchAction: 'manipulation'
-                                },
-                                onTouchStart: (e) => {
-                                    e.stopPropagation();
-                                    e.currentTarget.style.backgroundColor = '#1d4ed8';
-                                },
-                                onTouchEnd: (e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    e.currentTarget.style.backgroundColor = '';
-                                    // 즉시 실행 (setTimeout 제거)
-                                    try {
-                                        console.log('확인 버튼 클릭됨', confirmDialog);
-                                        if (confirmDialog && confirmDialog.onConfirm) {
-                                            console.log('onConfirm 함수 실행 중...');
-                                            confirmDialog.onConfirm();
-                                            console.log('onConfirm 함수 실행 완료');
-                                        } else {
-                                            console.log('onConfirm 함수가 없습니다');
-                                        }
-                                    } catch (error) {
-                                        console.error('확인 버튼 에러:', error);
-                                        alert('처리 중 오류가 발생했습니다: ' + error.message);
-                                    }
-                                },
-                                onTouchCancel: (e) => {
-                                    e.currentTarget.style.backgroundColor = '';
-                                },
-                                onClick: (e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    try {
-                                        console.log('확인 버튼 onClick', confirmDialog);
-                                        if (confirmDialog && confirmDialog.onConfirm) {
-                                            confirmDialog.onConfirm();
-                                        }
-                                    } catch (error) {
-                                        console.error('확인 버튼 onClick 에러:', error);
-                                        alert('처리 중 오류가 발생했습니다: ' + error.message);
-                                    }
-                                }
-                            }, "확인")
-                        ])
+                        React.createElement(Plus, { key: 'icon' }),
+                        React.createElement('span', { key: 'text' }, "새 경비 추가")
                     ])
                 ),
-                
-                // 경비 추가 폼 - 전체 기능 포함
+
+                // 개인별 정산 현황
+                React.createElement('div', { 
+                    key: 'personal',
+                    className: "mx-4 mb-4" 
+                }, [
+                    React.createElement('div', { 
+                        key: 'header',
+                        className: "water-card rounded-lg p-4 shadow-sm" 
+                    }, [
+                        React.createElement('h2', { 
+                            key: 'title',
+                            className: "text-lg font-semibold mb-3 text-blue-900 flex items-center gap-2" 
+                        }, [
+                            React.createElement(Users, { key: 'icon' }),
+                            React.createElement('span', { key: 'text' }, "팀원별 정산 현황")
+                        ]),
+                        React.createElement('div', { 
+                            key: 'grid',
+                            className: "grid grid-cols-2 gap-2 text-sm" 
+                        },
+                            members.map(member => {
+                                const totals = personalTotals[member] || { paid: 0, owes: 0, net: 0 };
+                                const isPositive = totals.net > 0;
+                                const isZero = totals.net === 0;
+                                
+                                return React.createElement('div', { 
+                                    key: member,
+                                    className: "p-3 rounded border water-card" 
+                                }, [
+                                    React.createElement('div', { 
+                                        key: 'name',
+                                        className: "font-medium text-blue-900 flex items-center gap-1" 
+                                    }, [
+                                        React.createElement('span', { key: 'icon' }, member === '승우' ? '🎖️' : '🏊‍♀️'),
+                                        React.createElement('span', { key: 'text' }, member)
+                                    ]),
+                                    React.createElement('div', { 
+                                        key: 'amount',
+                                        className: `text-xs mt-1 ${
+                                            isZero ? 'text-gray-600' : 
+                                            isPositive ? 'text-green-600' : 'text-red-600'
+                                        }` 
+                                    }, `${Math.abs(totals.net).toLocaleString()}원${isZero ? '' : isPositive ? ' 받을 돈' : ' 줄 돈'}`)
+                                ]);
+                            })
+                        )
+                    ])
+                ]),
+
+                // 경비 내역 리스트
+                React.createElement('div', { 
+                    key: 'expenses-list',
+                    className: "mx-4 space-y-3" 
+                },
+                    expenses.length === 0 
+                        ? React.createElement('div', { 
+                            key: 'empty',
+                            className: "text-center py-8 text-gray-500" 
+                        }, [
+                            React.createElement('p', { key: 'text' }, "🏊‍♀️ 아직 경비가 없습니다"),
+                            React.createElement('p', { key: 'sub', className: "text-sm" }, "첫 경비를 추가해보세요!")
+                        ])
+                        : expenses.map(expense => {
+                            const category = categories.find(c => c.id === expense.category) || categories[4];
+                            const isCompleted = isExpenseCompleted(expense);
+                            
+                            return React.createElement('div', { 
+                                key: expense.id,
+                                className: `water-card rounded-lg shadow-sm ${isCompleted ? 'opacity-60' : ''}` 
+                            }, [
+                                React.createElement('div', { 
+                                    key: 'main',
+                                    className: "p-4" 
+                                }, [
+                                    React.createElement('div', { 
+                                        key: 'header',
+                                        className: "flex items-center justify-between mb-2" 
+                                    }, [
+                                        React.createElement('div', { 
+                                            key: 'left',
+                                            className: "flex items-center gap-3" 
+                                        }, [
+                                            React.createElement('span', { 
+                                                key: 'icon',
+                                                className: "text-xl" 
+                                            }, category.icon),
+                                            React.createElement('div', { key: 'info' }, [
+                                                React.createElement('h3', { 
+                                                    key: 'title',
+                                                    className: `font-medium text-blue-900 ${isCompleted ? 'line-through' : ''}` 
+                                                }, expense.title),
+                                                React.createElement('p', { 
+                                                    key: 'meta',
+                                                    className: "text-xs text-blue-700" 
+                                                }, `${expense.payer} 결제 • ${expense.date} ${expense.time}`)
+                                            ])
+                                        ]),
+                                        React.createElement('div', { 
+                                            key: 'right',
+                                            className: "text-right" 
+                                        }, [
+                                            React.createElement('p', { 
+                                                key: 'amount',
+                                                className: `text-lg font-bold text-blue-900 ${isCompleted ? 'line-through' : ''}` 
+                                            }, `${expense.amount.toLocaleString()}원`),
+                                            React.createElement('button', {
+                                                key: 'menu',
+                                                onClick: (e) => {
+                                                    e.stopPropagation();
+                                                    setShowExpenseMenu(prev => ({
+                                                        ...prev,
+                                                        [expense.id]: !prev[expense.id]
+                                                    }));
+                                                },
+                                                className: "p-1 text-blue-600 hover:bg-blue-100 rounded"
+                                            }, React.createElement(MoreVertical, { size: 16 }))
+                                        ])
+                                    ]),
+                                    
+                                    // 메뉴
+                                    showExpenseMenu[expense.id] && React.createElement('div', { 
+                                        key: 'menu',
+                                        className: "absolute right-4 mt-2 bg-white rounded-lg shadow-lg border py-1 z-20" 
+                                    }, [
+                                        React.createElement('button', {
+                                            key: 'edit',
+                                            onClick: () => startEdit(expense),
+                                            className: "w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 text-sm"
+                                        }, [
+                                            React.createElement(Edit3, { key: 'icon', size: 14 }),
+                                            React.createElement('span', { key: 'text' }, "수정")
+                                        ]),
+                                        React.createElement('button', {
+                                            key: 'complete',
+                                            onClick: () => toggleExpenseCompletion(expense.id),
+                                            className: "w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 text-sm"
+                                        }, [
+                                            React.createElement(Check, { key: 'icon', size: 14 }),
+                                            React.createElement('span', { key: 'text' }, isCompleted ? "정산 해제" : "전체 완료")
+                                        ]),
+                                        React.createElement('button', {
+                                            key: 'delete',
+                                            onClick: () => deleteExpense(expense.id, expense.title),
+                                            className: "w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 text-sm text-red-600"
+                                        }, [
+                                            React.createElement(Trash2, { key: 'icon', size: 14 }),
+                                            React.createElement('span', { key: 'text' }, "삭제")
+                                        ])
+                                    ]),
+
+                                    // 정산 정보
+                                    React.createElement('div', { 
+                                        key: 'settlement',
+                                        className: "flex items-center justify-between text-sm mt-3 pt-3 border-t border-blue-100" 
+                                    }, [
+                                        React.createElement('div', { 
+                                            key: 'participants',
+                                            className: "flex items-center gap-2" 
+                                        }, [
+                                            React.createElement('span', { 
+                                                key: 'label',
+                                                className: "text-blue-700" 
+                                            }, "참여자:"),
+                                            React.createElement('span', { 
+                                                key: 'count',
+                                                className: "text-blue-900 font-medium" 
+                                            }, `${expense.participants?.length || 0}명`)
+                                        ]),
+                                        React.createElement('div', { 
+                                            key: 'status',
+                                            className: "flex items-center gap-2" 
+                                        }, [
+                                            React.createElement('button', {
+                                                key: 'toggle',
+                                                onClick: () => setExpandedExpenses(prev => ({
+                                                    ...prev,
+                                                    [expense.id]: !prev[expense.id]
+                                                })),
+                                                className: "text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                            }, [
+                                                React.createElement('span', { key: 'text' }, "개별 정산"),
+                                                React.createElement(expandedExpenses[expense.id] ? ChevronUp : ChevronDown, { 
+                                                    key: 'icon',
+                                                    size: 16 
+                                                })
+                                            ]),
+                                            (() => {
+                                                try {
+                                                    if (!expense || !Array.isArray(expense.participants)) {
+                                                        return React.createElement('span', { 
+                                                            key: 'completed',
+                                                            className: "text-xs text-gray-500" 
+                                                        }, "0/0명");
+                                                    }
+                                                    const completedBy = expense.completedBy && typeof expense.completedBy === 'object' ? expense.completedBy : {};
+                                                    const completedCount = expense.participants.filter(p => {
+                                                        return p && typeof p === 'string' && completedBy[p] === true;
+                                                    }).length;
+                                                    return React.createElement('span', { 
+                                                        key: 'completed',
+                                                        className: "text-xs text-blue-700" 
+                                                    }, `${completedCount}/${expense.participants.length}명`);
+                                                } catch (error) {
+                                                    console.error('completedCount 계산 에러:', error);
+                                                    return React.createElement('span', { 
+                                                        key: 'completed',
+                                                        className: "text-xs text-gray-500" 
+                                                    }, "0/0명");
+                                                }
+                                            })()
+                                        ])
+                                    ]),
+
+                                    // 개별 정산 세부사항
+                                    expandedExpenses[expense.id] && expense.participants && Array.isArray(expense.participants) && React.createElement('div', { 
+                                        key: 'details',
+                                        className: "grid grid-cols-2 gap-1 text-xs mt-2 pt-2 border-t border-blue-100" 
+                                    },
+                                        expense.participants.map(participant => {
+                                            try {
+                                                if (!participant || typeof participant !== 'string') {
+                                                    return null;
+                                                }
+                                                
+                                                const amount = getParticipantAmount(expense, participant);
+                                                const completedBy = expense.completedBy && typeof expense.completedBy === 'object' ? expense.completedBy : {};
+                                                const isCompleted = completedBy[participant] === true;
+                                                
+                                                return React.createElement('div', { 
+                                                    key: participant,
+                                                    className: `flex items-center justify-between p-2 rounded border ${
+                                                        isCompleted ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'
+                                                    }` 
+                                                }, [
+                                                    React.createElement('span', { 
+                                                        key: 'name',
+                                                        className: isCompleted ? 'text-green-700 line-through' : 'text-blue-700' 
+                                                    }, [
+                                                        participant === '승우' ? '🎖️ ' : '🏊‍♀️ ',
+                                                        participant
+                                                    ]),
+                                                    React.createElement('div', { 
+                                                        key: 'amount',
+                                                        className: "flex items-center gap-1" 
+                                                    }, [
+                                                        React.createElement('span', { 
+                                                            key: 'value',
+                                                            className: isCompleted ? 'text-green-700 line-through' : 'text-blue-700' 
+                                                        }, `${amount.toLocaleString()}원`),
+                                                        React.createElement('button', {
+                                                            key: 'check',
+                                                            onClick: () => togglePersonalCompletion(expense.id, participant),
+                                                            className: `p-1 rounded mobile-button ${
+                                                                isCompleted 
+                                                                    ? 'text-green-600 hover:text-green-700' 
+                                                                    : 'text-blue-400 hover:text-blue-600'
+                                                            }`
+                                                        }, React.createElement(Check))
+                                                    ])
+                                                ]);
+                                            } catch (error) {
+                                                console.error('participant 렌더링 에러:', error, { participant, expense });
+                                                return null;
+                                            }
+                                        }).filter(Boolean)
+                                    )
+                                ])
+                            ]);
+                        })
+                ),
+
+                // 새 경비 추가 폼
                 showAddForm && React.createElement('div', { 
-                    key: 'addForm',
-                    className: "fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end sm:items-center justify-center" 
+                    key: 'form-overlay',
+                    className: "fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" 
                 },
                     React.createElement('div', { 
-                        className: "bg-white w-full max-w-md rounded-t-xl sm:rounded-xl max-h-[90vh] overflow-y-auto" 
+                        className: "water-card rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" 
                     }, [
-                        React.createElement('div', { 
-                            key: 'header',
-                            className: "sticky top-0 bg-white p-4 border-b border-gray-200 rounded-t-xl" 
-                        },
-                            React.createElement('div', { 
-                                className: "flex justify-between items-center" 
-                            }, [
-                                React.createElement('h3', { 
-                                    key: 'title',
-                                    className: "text-lg font-semibold" 
-                                }, editingExpense ? "경비 수정" : "새 경비 추가"),
-                                React.createElement('button', {
-                                    key: 'close',
-                                    onClick: () => {
-                                        setShowAddForm(false);
-                                        setShowCustomSplit(false);
-                                        setEditingExpense(null);
-                                    },
-                                    className: "p-2 hover:bg-gray-100 rounded-lg"
-                                }, React.createElement(X))
-                            ])
-                        ),
+                        React.createElement('h2', { 
+                            key: 'form-title',
+                            className: "text-lg font-semibold mb-4 text-blue-900" 
+                        }, editingExpense ? "경비 수정" : "새 경비 추가"),
                         
-                        React.createElement('div', { 
+                        React.createElement('form', { 
                             key: 'form',
-                            className: "p-4 space-y-4" 
+                            onSubmit: handleSubmit,
+                            className: "space-y-4" 
                         }, [
-                            // 제목 입력
-                            React.createElement('div', { key: 'title' }, [
+                            // 제목
+                            React.createElement('div', { key: 'title-field' }, [
                                 React.createElement('label', { 
                                     key: 'label',
-                                    className: "block text-sm font-medium text-gray-700 mb-2" 
-                                }, "항목명"),
+                                    className: "block text-sm font-medium text-blue-900 mb-1" 
+                                }, "제목"),
                                 React.createElement('input', {
                                     key: 'input',
-                                    type: "text",
-                                    value: newExpense.title,
-                                    onChange: (e) => setNewExpense({...newExpense, title: e.target.value}),
-                                    className: "w-full border border-gray-300 rounded-lg px-3 py-3 text-base",
-                                    placeholder: "예: 점심식사 - 해물탕집"
+                                    type: 'text',
+                                    value: formData.title,
+                                    onChange: (e) => setFormData(prev => ({ ...prev, title: e.target.value })),
+                                    className: "w-full px-3 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent",
+                                    placeholder: "예: 펜션 바베큐 고기값"
                                 })
                             ]),
 
-                            // 날짜, 시간
-                            React.createElement('div', { 
-                                key: 'datetime',
-                                className: "grid grid-cols-2 gap-3" 
-                            }, [
-                                React.createElement('div', { key: 'date' }, [
-                                    React.createElement('label', { 
-                                        key: 'label',
-                                        className: "block text-sm font-medium text-gray-700 mb-2" 
-                                    }, "날짜"),
-                                    React.createElement('input', {
-                                        key: 'input',
-                                        type: "date",
-                                        value: newExpense.date,
-                                        onChange: (e) => setNewExpense({...newExpense, date: e.target.value}),
-                                        className: "w-full border border-gray-300 rounded-lg px-3 py-3 text-base"
-                                    })
-                                ]),
-                                React.createElement('div', { key: 'time' }, [
-                                    React.createElement('label', { 
-                                        key: 'label',
-                                        className: "block text-sm font-medium text-gray-700 mb-2" 
-                                    }, "시간"),
-                                    React.createElement('input', {
-                                        key: 'input',
-                                        type: "time",
-                                        value: newExpense.time,
-                                        onChange: (e) => setNewExpense({...newExpense, time: e.target.value}),
-                                        className: "w-full border border-gray-300 rounded-lg px-3 py-3 text-base"
-                                    })
-                                ])
-                            ]),
-
-                            // 카테고리, 결제자
-                            React.createElement('div', { 
-                                key: 'catpayer',
-                                className: "grid grid-cols-2 gap-3" 
-                            }, [
-                                React.createElement('div', { key: 'category' }, [
-                                    React.createElement('label', { 
-                                        key: 'label',
-                                        className: "block text-sm font-medium text-gray-700 mb-2" 
-                                    }, "카테고리"),
-                                    React.createElement('select', {
-                                        key: 'select',
-                                        value: newExpense.category,
-                                        onChange: (e) => setNewExpense({...newExpense, category: e.target.value}),
-                                        className: "w-full border border-gray-300 rounded-lg px-3 py-3 text-base"
-                                    },
-                                        Object.entries(categories).map(([key, category]) => 
-                                            React.createElement('option', { 
-                                                key: key, 
-                                                value: key 
-                                            }, category.name)
-                                        )
-                                    )
-                                ]),
-                                React.createElement('div', { key: 'payer' }, [
-                                    React.createElement('label', { 
-                                        key: 'label',
-                                        className: "block text-sm font-medium text-gray-700 mb-2" 
-                                    }, "결제자"),
-                                    React.createElement('select', {
-                                        key: 'select',
-                                        value: newExpense.payer,
-                                        onChange: (e) => setNewExpense({...newExpense, payer: e.target.value}),
-                                        className: "w-full border border-gray-300 rounded-lg px-3 py-3 text-base"
-                                    },
-                                        members.map(member => 
-                                            React.createElement('option', { 
-                                                key: member, 
-                                                value: member 
-                                            }, member)
-                                        )
-                                    )
-                                ])
-                            ]),
-                            
-                            // 금액 입력
-                            React.createElement('div', { key: 'amount' }, [
+                            // 금액
+                            React.createElement('div', { key: 'amount-field' }, [
                                 React.createElement('label', { 
                                     key: 'label',
-                                    className: "block text-sm font-medium text-gray-700 mb-2" 
-                                }, "총 금액"),
+                                    className: "block text-sm font-medium text-blue-900 mb-1" 
+                                }, "금액"),
                                 React.createElement('input', {
                                     key: 'input',
-                                    type: "number",
-                                    value: newExpense.amount,
-                                    onChange: (e) => setNewExpense({...newExpense, amount: e.target.value, customSplit: {}}),
-                                    className: "w-full border border-gray-300 rounded-lg px-3 py-3 text-base",
-                                    placeholder: "50000"
+                                    type: 'number',
+                                    value: formData.amount,
+                                    onChange: (e) => setFormData(prev => ({ ...prev, amount: e.target.value })),
+                                    className: "w-full px-3 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent",
+                                    placeholder: "0"
                                 })
                             ]),
 
-                            // 참여자 선택
-                            React.createElement('div', { key: 'participants' }, [
+                            // 결제자
+                            React.createElement('div', { key: 'payer-field' }, [
                                 React.createElement('label', { 
                                     key: 'label',
-                                    className: "block text-sm font-medium text-gray-700 mb-2" 
-                                }, `참여자 (${newExpense.participants.length}명)`),
+                                    className: "block text-sm font-medium text-blue-900 mb-1" 
+                                }, "결제자"),
+                                React.createElement('select', {
+                                    key: 'select',
+                                    value: formData.payer,
+                                    onChange: (e) => setFormData(prev => ({ ...prev, payer: e.target.value })),
+                                    className: "w-full px-3 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                }, members.map(member => 
+                                    React.createElement('option', { 
+                                        key: member,
+                                        value: member 
+                                    }, member === '승우' ? `🎖️ ${member}` : `🏊‍♀️ ${member}`)
+                                ))
+                            ]),
+
+                            // 카테고리
+                            React.createElement('div', { key: 'category-field' }, [
+                                React.createElement('label', { 
+                                    key: 'label',
+                                    className: "block text-sm font-medium text-blue-900 mb-1" 
+                                }, "카테고리"),
+                                React.createElement('select', {
+                                    key: 'select',
+                                    value: formData.category,
+                                    onChange: (e) => setFormData(prev => ({ ...prev, category: e.target.value })),
+                                    className: "w-full px-3 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                }, categories.map(category => 
+                                    React.createElement('option', { 
+                                        key: category.id,
+                                        value: category.id 
+                                    }, `${category.icon} ${category.name}`)
+                                ))
+                            ]),
+
+                            // 참여자
+                            React.createElement('div', { key: 'participants-field' }, [
+                                React.createElement('label', { 
+                                    key: 'label',
+                                    className: "block text-sm font-medium text-blue-900 mb-1" 
+                                }, "참여자"),
                                 React.createElement('div', { 
                                     key: 'checkboxes',
                                     className: "grid grid-cols-2 gap-2" 
-                                },
-                                    members.map(member => 
-                                        React.createElement('label', { 
-                                            key: member,
-                                            className: "flex items-center gap-2 p-2 border rounded-lg cursor-pointer hover:bg-gray-50" 
-                                        }, [
-                                            React.createElement('input', {
-                                                key: 'checkbox',
-                                                type: "checkbox",
-                                                checked: newExpense.participants.includes(member),
-                                                onChange: () => toggleParticipant(member),
-                                                className: "rounded"
-                                            }),
-                                            React.createElement('span', { 
-                                                key: 'name',
-                                                className: "text-sm" 
-                                            }, member)
-                                        ])
-                                    )
-                                )
+                                }, members.map(member => 
+                                    React.createElement('label', { 
+                                        key: member,
+                                        className: "flex items-center gap-2 cursor-pointer" 
+                                    }, [
+                                        React.createElement('input', {
+                                            key: 'checkbox',
+                                            type: 'checkbox',
+                                            checked: formData.participants.includes(member),
+                                            onChange: (e) => {
+                                                if (e.target.checked) {
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        participants: [...prev.participants, member]
+                                                    }));
+                                                } else {
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        participants: prev.participants.filter(p => p !== member)
+                                                    }));
+                                                }
+                                            },
+                                            className: "rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                                        }),
+                                        React.createElement('span', { 
+                                            key: 'name',
+                                            className: "text-sm text-blue-900" 
+                                        }, member === '승우' ? `🎖️ ${member}` : `🏊‍♀️ ${member}`)
+                                    ])
+                                ))
                             ]),
 
-                            // 분담 방식
-                            newExpense.participants.length > 0 && newExpense.amount && React.createElement('div', { key: 'split' }, [
-                                React.createElement('div', { 
-                                    key: 'header',
-                                    className: "flex justify-between items-center mb-2" 
-                                }, [
-                                    React.createElement('label', { 
-                                        key: 'label',
-                                        className: "text-sm font-medium text-gray-700" 
-                                    }, "분담 방식"),
-                                    React.createElement('button', {
-                                        key: 'toggle',
-                                        onClick: () => setShowCustomSplit(!showCustomSplit),
-                                        className: "flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
-                                    }, [
-                                        React.createElement(Settings, { key: 'icon' }),
-                                        "세부 설정"
-                                    ])
-                                ]),
-                                
-                                !showCustomSplit 
-                                    ? React.createElement('div', { 
-                                        key: 'equal',
-                                        className: "bg-gray-50 rounded-lg p-3" 
-                                    }, [
-                                        React.createElement('div', { 
-                                            key: 'title',
-                                            className: "text-sm text-gray-600 mb-2" 
-                                        }, "균등 분할"),
-                                        React.createElement('div', { 
-                                            key: 'amounts',
-                                            className: "grid grid-cols-2 gap-1 text-xs" 
-                                        },
-                                            newExpense.participants.map(member =>
-                                                React.createElement('div', { 
-                                                    key: member,
-                                                    className: "flex justify-between" 
-                                                }, [
-                                                    React.createElement('span', { key: 'name' }, member),
-                                                    React.createElement('span', { key: 'amount' }, 
-                                                        `${Math.round(parseInt(newExpense.amount) / newExpense.participants.length).toLocaleString()}원`
-                                                    )
-                                                ])
-                                            )
-                                        )
-                                    ])
-                                    : React.createElement('div', { 
-                                        key: 'custom',
-                                        className: "space-y-2" 
-                                    }, [
-                                        React.createElement('div', { 
-                                            key: 'title',
-                                            className: "text-sm text-gray-600" 
-                                        }, "개별 금액 설정"),
-                                        newExpense.participants.map(member =>
-                                            React.createElement('div', { 
-                                                key: member,
-                                                className: "flex items-center gap-2" 
-                                            }, [
-                                                React.createElement('span', { 
-                                                    key: 'name',
-                                                    className: "text-sm w-12 flex-shrink-0" 
-                                                }, member),
-                                                React.createElement('input', {
-                                                    key: 'input',
-                                                    type: "number",
-                                                    placeholder: getPreviewAmount(member).toString(),
-                                                    value: newExpense.customSplit[member] || '',
-                                                    onChange: (e) => updateCustomSplit(member, e.target.value),
-                                                    className: "flex-1 border border-gray-300 rounded px-2 py-1 text-sm"
-                                                }),
-                                                React.createElement('span', { 
-                                                    key: 'preview',
-                                                    className: "text-xs text-gray-500 w-12" 
-                                                }, `${getPreviewAmount(member).toLocaleString()}원`)
-                                            ])
-                                        ),
-                                        React.createElement('div', { 
-                                            key: 'note',
-                                            className: "text-xs text-gray-500 bg-yellow-50 p-2 rounded" 
-                                        }, "빈 칸은 나머지 금액을 자동 분할합니다")
-                                    ])
-                            ])
-                        ]),
-                        
-                        React.createElement('div', { 
-                            key: 'footer',
-                            className: "sticky bottom-0 bg-white p-4 border-t border-gray-200" 
-                        },
+                            // 버튼들
                             React.createElement('div', { 
-                                className: "flex gap-3" 
+                                key: 'buttons',
+                                className: "flex gap-3 pt-4" 
                             }, [
                                 React.createElement('button', {
                                     key: 'cancel',
+                                    type: 'button',
                                     onClick: () => {
                                         setShowAddForm(false);
-                                        setShowCustomSplit(false);
                                         setEditingExpense(null);
                                     },
-                                    className: "flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium"
+                                    className: "flex-1 px-4 py-2 border border-blue-300 rounded-lg text-blue-700 hover:bg-blue-50"
                                 }, "취소"),
                                 React.createElement('button', {
                                     key: 'submit',
-                                    onClick: addExpense,
-                                    disabled: !newExpense.title || !newExpense.amount || newExpense.participants.length === 0,
-                                    className: "flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium disabled:bg-gray-300"
+                                    type: 'submit',
+                                    className: "flex-1 px-4 py-2 water-button text-white rounded-lg"
                                 }, editingExpense ? "수정" : "추가")
                             ])
-                        )
+                        ])
                     ])
                 )
             ]);
-        };
+        }
 
-        ReactDOM.render(React.createElement(WandooExpenseDashboard), document.getElementById('root'));
+        ReactDOM.render(React.createElement(App), document.getElementById('root'));
     </script>
 </body>
 </html>
